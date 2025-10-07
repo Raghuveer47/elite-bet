@@ -1,0 +1,279 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { AdminProvider } from './contexts/AdminContext';
+import { WalletProvider } from './contexts/WalletContext';
+import { SessionMonitorWrapper } from './components/SessionMonitorWrapper';
+import { Toaster } from 'react-hot-toast';
+import { Header } from './components/layout/Header';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { AdminProtectedRoute } from './components/auth/AdminProtectedRoute';
+import LandingPage from './pages/LandingPage';
+import { LoginPage } from './pages/auth/LoginPage';
+import { RegisterPage } from './pages/auth/RegisterPage';
+import { DashboardPage } from './pages/DashboardPage';
+import SportsPage from './pages/SportsPage';
+import { CasinoPage } from './pages/CasinoPage';
+import { WalletPage } from './pages/WalletPage';
+import { PromotionsPage } from './pages/PromotionsPage';
+import { SupportPage } from './pages/SupportPage';
+import { AccountPage } from './pages/AccountPage';
+import { AdminLoginPage } from './pages/admin/AdminLoginPage';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { UserManagement } from './pages/admin/UserManagement';
+import { FinancialManagement } from './pages/admin/FinancialManagement';
+import { GameManagement } from './pages/admin/GameManagement';
+import { RiskManagement } from './pages/admin/RiskManagement';
+import { KYCManagement } from './pages/admin/KYCManagement';
+import { PromotionManagement } from './pages/admin/PromotionManagement';
+import { SupportManagement } from './pages/admin/SupportManagement';
+import { AdminLayout } from './pages/admin/AdminLayout';
+import { LiveNotificationSystem } from './components/notifications/LiveNotificationSystem';
+import { ActivityFeed } from './components/notifications/ActivityFeed';
+import { FloatingWinners } from './components/notifications/FloatingWinners';
+import { JackpotTicker } from './components/notifications/JackpotTicker';
+
+import { useRealisticNotifications } from './hooks/useRealisticNotifications';
+function AppContent() {
+  useRealisticNotifications();
+
+  return (
+    <SessionMonitorWrapper>
+      <Routes>
+      {/* Public Routes */}
+      <Route path="/" element={
+        <ProtectedRoute requireAuth={false}>
+          <div className="min-h-screen bg-slate-900">
+            <Header />
+            <LandingPage />
+          </div>
+        </ProtectedRoute>
+      } />
+      <Route path="/login" element={
+        <ProtectedRoute requireAuth={false}>
+          <div className="min-h-screen bg-slate-900">
+            <Header />
+            <LoginPage />
+          </div>
+        </ProtectedRoute>
+      } />
+      <Route path="/register" element={
+        <ProtectedRoute requireAuth={false}>
+          <div className="min-h-screen bg-slate-900">
+            <Header />
+            <RegisterPage />
+          </div>
+        </ProtectedRoute>
+      } />
+      
+      {/* Protected User Routes */}
+      <Route path="/dashboard" element={
+        <ProtectedRoute>
+          <div className="min-h-screen bg-slate-900">
+            <Header />
+            {/* Show notifications only on user pages */}
+            <div className="fixed inset-0 pointer-events-none z-20">
+              <LiveNotificationSystem />
+              <ActivityFeed />
+              <FloatingWinners />
+              <JackpotTicker />
+            </div>
+            <DashboardPage />
+          </div>
+        </ProtectedRoute>
+      } />
+      <Route path="/sports" element={
+        <ProtectedRoute>
+          <div className="min-h-screen bg-slate-900">
+            <Header />
+            <div className="fixed inset-0 pointer-events-none z-20">
+              <LiveNotificationSystem />
+              <ActivityFeed />
+              <FloatingWinners />
+              <JackpotTicker />
+            </div>
+            <SportsPage />
+          </div>
+        </ProtectedRoute>
+      } />
+      <Route path="/casino" element={
+        <ProtectedRoute>
+          <div className="min-h-screen bg-slate-900">
+            <Header />
+            <div className="fixed inset-0 pointer-events-none z-20">
+              <LiveNotificationSystem />
+              <ActivityFeed />
+              <FloatingWinners />
+              <JackpotTicker />
+            </div>
+            <CasinoPage />
+          </div>
+        </ProtectedRoute>
+      } />
+      <Route path="/wallet" element={
+        <ProtectedRoute>
+          <div className="min-h-screen bg-slate-900">
+            <Header />
+            <div className="fixed inset-0 pointer-events-none z-20">
+              <LiveNotificationSystem />
+              <ActivityFeed />
+              <FloatingWinners />
+              <JackpotTicker />
+            </div>
+            <WalletPage />
+          </div>
+        </ProtectedRoute>
+      } />
+      <Route path="/account" element={
+        <ProtectedRoute>
+          <div className="min-h-screen bg-slate-900">
+            <Header />
+            <div className="fixed inset-0 pointer-events-none z-20">
+              <LiveNotificationSystem />
+              <ActivityFeed />
+              <FloatingWinners />
+              <JackpotTicker />
+            </div>
+            <AccountPage />
+          </div>
+        </ProtectedRoute>
+      } />
+      <Route path="/promotions" element={
+        <ProtectedRoute>
+          <div className="min-h-screen bg-slate-900">
+            <Header />
+            <div className="fixed inset-0 pointer-events-none z-20">
+              <LiveNotificationSystem />
+              <ActivityFeed />
+              <FloatingWinners />
+              <JackpotTicker />
+            </div>
+            <PromotionsPage />
+          </div>
+        </ProtectedRoute>
+      } />
+      <Route path="/support" element={
+        <ProtectedRoute>
+          <div className="min-h-screen bg-slate-900">
+            <Header />
+            <div className="fixed inset-0 pointer-events-none z-20">
+              <LiveNotificationSystem />
+              <ActivityFeed />
+              <FloatingWinners />
+              <JackpotTicker />
+            </div>
+            <SupportPage />
+          </div>
+        </ProtectedRoute>
+      } />
+      <Route path="/live" element={
+        <ProtectedRoute>
+          <div className="min-h-screen bg-slate-900">
+            <Header />
+            <div className="fixed inset-0 pointer-events-none z-20">
+              <LiveNotificationSystem />
+              <ActivityFeed />
+              <FloatingWinners />
+              <JackpotTicker />
+            </div>
+            <SportsPage />
+          </div>
+        </ProtectedRoute>
+      } />
+      
+      {/* Admin Routes */}
+      <Route path="/admin/login" element={
+        <AdminProtectedRoute requireAdmin={false}>
+          <AdminLoginPage />
+        </AdminProtectedRoute>
+      } />
+      <Route path="/admin/dashboard" element={
+        <AdminProtectedRoute>
+          <AdminLayout>
+            <AdminDashboard />
+          </AdminLayout>
+        </AdminProtectedRoute>
+      } />
+      <Route path="/admin/users" element={
+        <AdminProtectedRoute>
+          <AdminLayout>
+            <UserManagement />
+          </AdminLayout>
+        </AdminProtectedRoute>
+      } />
+      <Route path="/admin/financial" element={
+        <AdminProtectedRoute>
+          <AdminLayout>
+            <FinancialManagement />
+          </AdminLayout>
+        </AdminProtectedRoute>
+      } />
+      <Route path="/admin/games" element={
+        <AdminProtectedRoute>
+          <AdminLayout>
+            <GameManagement />
+          </AdminLayout>
+        </AdminProtectedRoute>
+      } />
+      <Route path="/admin/risk" element={
+        <AdminProtectedRoute>
+          <AdminLayout>
+            <RiskManagement />
+          </AdminLayout>
+        </AdminProtectedRoute>
+      } />
+      <Route path="/admin/kyc" element={
+        <AdminProtectedRoute>
+          <AdminLayout>
+            <KYCManagement />
+          </AdminLayout>
+        </AdminProtectedRoute>
+      } />
+      <Route path="/admin/promotions" element={
+        <AdminProtectedRoute>
+          <AdminLayout>
+            <PromotionManagement />
+          </AdminLayout>
+        </AdminProtectedRoute>
+      } />
+      <Route path="/admin/support" element={
+        <AdminProtectedRoute>
+          <AdminLayout>
+            <SupportManagement />
+          </AdminLayout>
+        </AdminProtectedRoute>
+      } />
+      
+      {/* Catch all route */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </SessionMonitorWrapper>
+  );
+}
+function App() {
+  return (
+    <AuthProvider>
+      <AdminProvider>
+        <WalletProvider>
+          <Router>
+            <AppContent />
+            <Toaster 
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: '#1e293b',
+                  color: '#fff',
+                  border: '1px solid #334155'
+                }
+              }}
+            />
+          </Router>
+        </WalletProvider>
+      </AdminProvider>
+    </AuthProvider>
+  );
+}
+
+export default App;
