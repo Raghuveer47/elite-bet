@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
-import { History, Filter, Download, Search, ArrowUpRight, ArrowDownLeft, Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { History, Download, Search, ArrowUpRight, ArrowDownLeft, Clock, CheckCircle, XCircle, Eye, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { useWallet } from '../../contexts/WalletContext';
+import { useWallet } from '../../contexts/SupabaseWalletContext';
 import { Transaction } from '../../types/wallet';
 import { formatCurrency, formatDate } from '../../lib/utils';
 
 export function TransactionHistory() {
-  const { transactions, isLoading } = useWallet();
+  const { transactions, isLoading, refreshWallet } = useWallet();
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [dateRange, setDateRange] = useState('all');
@@ -49,22 +49,103 @@ export function TransactionHistory() {
     }
   };
 
+  // Calculate balance history
+  const balanceHistory = useMemo(() => {
+    if (!transactions || transactions.length === 0) return [];
+    
+    const sortedTransactions = [...transactions].sort((a, b) => 
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    
+    // Calculate current balance from completed transactions
+    let currentBalance = 0;
+    sortedTransactions.forEach(transaction => {
+      if (transaction.status === 'completed') {
+        if (transaction.type === 'deposit' || transaction.type === 'win' || transaction.type === 'bonus') {
+          currentBalance += transaction.amount;
+        } else if (transaction.type === 'withdrawal' || transaction.type === 'bet') {
+          currentBalance -= Math.abs(transaction.amount);
+        }
+      }
+    });
+    
+    let runningBalance = currentBalance;
+    const history = [];
+    
+    // Work backwards from current balance
+    for (let i = sortedTransactions.length - 1; i >= 0; i--) {
+      const transaction = sortedTransactions[i];
+      history.unshift({
+        ...transaction,
+        balanceAfter: runningBalance
+      });
+      
+      // Adjust balance based on transaction type and status
+      if (transaction.status === 'completed') {
+        if (transaction.type === 'deposit' || transaction.type === 'win' || transaction.type === 'bonus') {
+          runningBalance -= transaction.amount;
+        } else if (transaction.type === 'withdrawal' || transaction.type === 'bet') {
+          runningBalance += Math.abs(transaction.amount);
+        }
+      }
+    }
+    
+    return history;
+  }, [transactions]);
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      completed: { color: 'text-green-400 bg-green-400/10', icon: CheckCircle },
-      pending: { color: 'text-yellow-400 bg-yellow-400/10', icon: Clock },
-      processing: { color: 'text-blue-400 bg-blue-400/10', icon: Clock },
-      failed: { color: 'text-red-400 bg-red-400/10', icon: XCircle },
-      cancelled: { color: 'text-slate-400 bg-slate-400/10', icon: XCircle }
+      completed: { 
+        color: 'text-green-400 bg-green-400/10 border-green-400/20', 
+        icon: CheckCircle, 
+        label: 'Completed',
+        bgColor: 'bg-green-500/10'
+      },
+      pending: { 
+        color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20', 
+        icon: Clock, 
+        label: 'Pending Review',
+        bgColor: 'bg-yellow-500/10'
+      },
+      processing: { 
+        color: 'text-blue-400 bg-blue-400/10 border-blue-400/20', 
+        icon: Clock, 
+        label: 'Processing',
+        bgColor: 'bg-blue-500/10'
+      },
+      failed: { 
+        color: 'text-red-400 bg-red-400/10 border-red-400/20', 
+        icon: XCircle, 
+        label: 'Failed',
+        bgColor: 'bg-red-500/10'
+      },
+      cancelled: { 
+        color: 'text-slate-400 bg-slate-400/10 border-slate-400/20', 
+        icon: XCircle, 
+        label: 'Cancelled',
+        bgColor: 'bg-slate-500/10'
+      },
+      approved: { 
+        color: 'text-green-400 bg-green-400/10 border-green-400/20', 
+        icon: CheckCircle, 
+        label: 'Approved',
+        bgColor: 'bg-green-500/10'
+      },
+      rejected: { 
+        color: 'text-red-400 bg-red-400/10 border-red-400/20', 
+        icon: XCircle, 
+        label: 'Rejected',
+        bgColor: 'bg-red-500/10'
+      }
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
     const Icon = config.icon;
 
     return (
-      <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+      <div className={`inline-flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium border ${config.color}`}>
         <Icon className="w-3 h-3" />
-        <span className="capitalize">{status}</span>
+        <span className="capitalize">{config.label}</span>
       </div>
     );
   };
@@ -108,7 +189,7 @@ export function TransactionHistory() {
     });
   };
 
-  const filteredTransactions = filterTransactions(transactions);
+  const filteredTransactions = filterTransactions(balanceHistory);
 
   const exportTransactions = () => {
     const csvContent = [
@@ -142,10 +223,21 @@ export function TransactionHistory() {
             <History className="w-6 h-6 text-purple-400" />
             <h3 className="text-xl font-semibold">Transaction History</h3>
           </div>
-          <Button variant="outline" size="sm" onClick={exportTransactions}>
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={refreshWallet}
+              disabled={isLoading}
+            >
+              <History className="w-4 h-4 mr-2" />
+              {isLoading ? 'Refreshing...' : 'Refresh'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportTransactions}>
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -182,8 +274,82 @@ export function TransactionHistory() {
         </div>
       </div>
 
+      {/* Balance Summary */}
+      <div className="p-6 border-b border-slate-700">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-400 text-sm font-medium">Current Balance</p>
+                <p className="text-white text-2xl font-bold">{formatCurrency(
+                  filteredTransactions
+                    .filter(t => t.status === 'completed')
+                    .reduce((sum, t) => {
+                      if (t.type === 'deposit' || t.type === 'win' || t.type === 'bonus') {
+                        return sum + t.amount;
+                      } else if (t.type === 'withdrawal' || t.type === 'bet') {
+                        return sum - Math.abs(t.amount);
+                      }
+                      return sum;
+                    }, 0)
+                )}</p>
+              </div>
+              <DollarSign className="w-8 h-8 text-green-400" />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-400 text-sm font-medium">Total Deposits</p>
+                <p className="text-white text-xl font-semibold">
+                  {formatCurrency(
+                    filteredTransactions
+                      .filter(t => t.type === 'deposit' && t.status === 'completed')
+                      .reduce((sum, t) => sum + t.amount, 0)
+                  )}
+                </p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-blue-400" />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-400 text-sm font-medium">Total Winnings</p>
+                <p className="text-white text-xl font-semibold">
+                  {formatCurrency(
+                    filteredTransactions
+                      .filter(t => t.type === 'win' && t.status === 'completed')
+                      .reduce((sum, t) => sum + t.amount, 0)
+                  )}
+                </p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-purple-400" />
+            </div>
+          </div>
+          
+          <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/20 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-orange-400 text-sm font-medium">Total Bets</p>
+                <p className="text-white text-xl font-semibold">
+                  {formatCurrency(
+                    filteredTransactions
+                      .filter(t => t.type === 'bet' && t.status === 'completed')
+                      .reduce((sum, t) => sum + Math.abs(t.amount), 0)
+                  )}
+                </p>
+              </div>
+              <TrendingDown className="w-8 h-8 text-orange-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Transaction List */}
-      <div className="overflow-x-auto">
+      <div className="p-6">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <LoadingSpinner />
@@ -194,98 +360,112 @@ export function TransactionHistory() {
             <p className="text-slate-400">No transactions found</p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-slate-700">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Fee</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Method</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Description</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700">
-              {filteredTransactions.map((transaction) => (
-                <tr key={transaction.id} className="hover:bg-slate-700/50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-2">
+          <div className="space-y-4">
+            {filteredTransactions.map((transaction) => (
+              <div 
+                key={transaction.id} 
+                className={`bg-slate-800/50 border border-slate-700 rounded-xl p-6 hover:bg-slate-800/70 transition-all duration-200 ${
+                  transaction.status === 'pending' ? 'ring-2 ring-yellow-500/20' : ''
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-4">
+                    <div className={`p-3 rounded-lg ${
+                      transaction.type === 'deposit' || transaction.type === 'win' || transaction.type === 'bonus' 
+                        ? 'bg-green-500/10 text-green-400' 
+                        : 'bg-red-500/10 text-red-400'
+                    }`}>
                       {getTransactionIcon(transaction.type, transaction.status)}
-                      <div>
-                        <span className="text-sm font-medium text-white capitalize">{transaction.type}</span>
-                        {transaction.metadata?.gameId && (
-                          <div className="text-xs text-slate-400">Game: {transaction.metadata.gameId}</div>
-                        )}
-                        {transaction.metadata?.betId && (
-                          <div className="text-xs text-slate-400">Bet ID: {transaction.metadata.betId.slice(-8)}</div>
-                        )}
+                    </div>
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h4 className="text-lg font-semibold text-white capitalize">{transaction.type}</h4>
+                        {getStatusBadge(transaction.status)}
                       </div>
+                      
+                      <p className="text-slate-300 mb-3">{transaction.description}</p>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <p className="text-slate-400">Amount</p>
+                          <p className={`font-semibold ${
+                            transaction.amount > 0 ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            {transaction.amount > 0 ? '+' : ''}{formatCurrency(Math.abs(transaction.amount))}
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-slate-400">Balance After</p>
+                          <p className="text-white font-semibold">{formatCurrency(transaction.balanceAfter || 0)}</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-slate-400">Method</p>
+                          <p className="text-slate-300 capitalize">{transaction.method}</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-slate-400">Date</p>
+                          <p className="text-slate-300">{formatDate(new Date(transaction.createdAt))}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Additional Details */}
+                      {(transaction.metadata?.gameId || transaction.metadata?.betId || transaction.metadata?.multiplier) && (
+                        <div className="mt-3 pt-3 border-t border-slate-700">
+                          <div className="flex flex-wrap gap-4 text-xs">
+                            {transaction.metadata?.gameId && (
+                              <span className="text-slate-400">Game: <span className="text-slate-300">{transaction.metadata.gameId}</span></span>
+                            )}
+                            {transaction.metadata?.betId && (
+                              <span className="text-slate-400">Bet ID: <span className="text-slate-300">{transaction.metadata.betId.slice(-8)}</span></span>
+                            )}
+                            {transaction.metadata?.multiplier && (
+                              <span className="text-slate-400">Multiplier: <span className="text-yellow-400">{transaction.metadata.multiplier.toFixed(2)}x</span></span>
+                            )}
+                            {transaction.metadata?.profit !== undefined && (
+                              <span className={`font-medium ${transaction.metadata.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                Profit: {formatCurrency(transaction.metadata.profit)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Payment Proof */}
                       {transaction.metadata?.paymentProofUrl && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedImage(transaction.metadata.paymentProofUrl);
-                            setShowImageModal(true);
-                          }}
-                          className="text-xs"
-                        >
-                          View Proof
-                        </Button>
+                        <div className="mt-3 pt-3 border-t border-slate-700">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedImage(transaction.metadata?.paymentProofUrl || '');
+                              setShowImageModal(true);
+                            }}
+                            className="text-xs"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            View Payment Proof
+                          </Button>
+                        </div>
                       )}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className={`text-sm font-medium ${
+                  </div>
+                  
+                  <div className="text-right">
+                    <div className={`text-2xl font-bold ${
                       transaction.amount > 0 ? 'text-green-400' : 'text-red-400'
                     }`}>
                       {transaction.amount > 0 ? '+' : ''}{formatCurrency(Math.abs(transaction.amount))}
                     </div>
-                    <div className="text-xs text-slate-400">{transaction.currency}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-slate-300">
-                      {transaction.fee > 0 ? formatCurrency(transaction.fee) : 'Free'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-slate-300">{transaction.method}</div>
-                    {transaction.provider && (
-                      <div className="text-xs text-slate-400">{transaction.provider}</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {getStatusBadge(transaction.status)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-slate-300">{formatDate(new Date(transaction.createdAt))}</div>
-                    {transaction.completedAt && (
-                      <div className="text-xs text-slate-400">
-                        Completed: {formatDate(new Date(transaction.completedAt))}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-slate-300 max-w-xs truncate">{transaction.description}</div>
-                    {transaction.externalReference && (
-                      <div className="text-xs text-slate-400">Ref: {transaction.externalReference}</div>
-                    )}
-                    {transaction.metadata?.profit !== undefined && (
-                      <div className={`text-xs font-medium ${transaction.metadata.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        Profit: {formatCurrency(transaction.metadata.profit)}
-                      </div>
-                    )}
-                    {transaction.metadata?.multiplier && (
-                      <div className="text-xs text-yellow-400">
-                        Multiplier: {transaction.metadata.multiplier.toFixed(2)}x
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <div className="text-xs text-slate-400 mt-1">{transaction.currency}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 

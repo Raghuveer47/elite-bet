@@ -2,8 +2,8 @@ import React from 'react';
 import { Wallet, TrendingUp, TrendingDown, Activity, AlertTriangle, Shield, RefreshCw, Trophy } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Link } from 'react-router-dom';
-import { useWallet } from '../../contexts/WalletContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { useWallet } from '../../contexts/SupabaseWalletContext';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
 import { formatCurrency } from '../../lib/utils';
 
 export function WalletOverview() {
@@ -22,25 +22,25 @@ export function WalletOverview() {
     );
   }
 
-  const currentBalance = getBalance('USD');
+  const currentBalance = getAvailableBalance(); // Use the same balance for consistency
   const availableBalance = getAvailableBalance();
   const mainAccount = accounts.find(acc => acc.accountType === 'main' && acc.currency === 'USD');
   const bonusAccount = accounts.find(acc => acc.accountType === 'bonus' && acc.currency === 'USD');
 
   const walletStats = [
     { 
-      label: 'Available Balance', 
+      label: 'Total Balance', 
       value: formatCurrency(currentBalance), 
       icon: Wallet, 
       color: 'text-green-400',
-      description: 'Total account balance'
+      description: 'Your total account balance'
     },
     { 
       label: 'Available Balance', 
       value: formatCurrency(availableBalance), 
       icon: Activity, 
       color: 'text-blue-400',
-      description: 'Available for new bets'
+      description: 'Available for betting and withdrawals'
     },
     { 
       label: 'Bonus Balance', 

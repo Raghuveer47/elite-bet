@@ -3,7 +3,7 @@ import {
   Gamepad2, Settings, BarChart3, TrendingUp, Play, Pause, DollarSign,
   Edit, Eye, AlertTriangle, CheckCircle, XCircle
 } from 'lucide-react';
-import { useAdmin } from '../../contexts/AdminContext';
+import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';

@@ -6,10 +6,13 @@ import {
   BarChart3, Users, Calendar, MapPin, Eye, Settings, Bell,
   ArrowUp, ArrowDown, Play, Pause, RefreshCw, Filter, Shield
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { WalletProvider, useWallet } from '../contexts/WalletContext';
-import { Button } from '../components/ui/Button';
+import { useAuth } from '../contexts/SupabaseAuthContext';
+import { WalletProvider, useWallet } from '../contexts/SupabaseWalletContext';
 import { formatCurrency, formatDate } from '../lib/utils';
+import { Button } from '../components/ui/Button';
+import { WelcomeBonusNotification } from '../components/WelcomeBonusNotification';
+import { TestWinButton } from '../components/TestWinButton';
+import { BalanceDebugger } from '../components/BalanceDebugger';
 
 function DashboardContent() {
   const { user, isAuthenticated } = useAuth();
@@ -695,7 +698,7 @@ function DashboardContent() {
                   <Crown className="w-8 h-8 text-white" />
                 </div>
                 <p className="text-2xl font-bold text-yellow-400">
-                  {Math.max(...recentTransactions.filter(t => t.metadata?.multiplier).map(t => t.metadata.multiplier), 0).toFixed(1)}x
+                  {Math.max(...recentTransactions.filter(t => t.metadata?.multiplier).map(t => t.metadata?.multiplier || 0), 0).toFixed(1)}x
                 </p>
                 <p className="text-slate-400 text-sm">Best Multiplier</p>
               </div>
@@ -764,6 +767,12 @@ function DashboardContent() {
           </div>
         </div>
       </div>
+      
+      {/* Welcome Bonus Notification */}
+      <WelcomeBonusNotification />
+      
+      {/* Test Win Button - Remove this after testing */}
+      <TestWinButton />
     </div>
   );
 }

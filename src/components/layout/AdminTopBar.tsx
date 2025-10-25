@@ -7,7 +7,7 @@ import {
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useAdmin } from '../../contexts/AdminContext';
+import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { formatCurrency } from '../../lib/utils';
 
 export function AdminTopBar() {

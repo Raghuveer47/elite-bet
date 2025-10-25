@@ -4,7 +4,7 @@ import {
   Shield, Menu, X, User, LogOut, Bell, Settings,
   Users, DollarSign, Gamepad2, AlertTriangle, BarChart3, Gift, MessageCircle
 } from 'lucide-react';
-import { useAdmin } from '../../contexts/AdminContext';
+import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { Button } from '../ui/Button';
 import { cn } from '../../lib/utils';
 
@@ -32,11 +32,13 @@ export function AdminHeader() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/admin/dashboard" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-orange-500 rounded-lg flex items-center justify-center">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
+            <img 
+              src="https://res.cloudinary.com/dy9zlgjh6/image/upload/v1761390123/Gemini_Generated_Image_7764vh7764vh7764_hhd94q.png" 
+              alt="Spinzos Logo" 
+              className="w-8 h-8 rounded-lg"
+            />
             <div>
-              <span className="text-xl font-bold text-white">Elite Bet</span>
+              <span className="text-xl font-bold text-white">Spinzos</span>
               <span className="text-xs text-red-400 block leading-none">ADMIN</span>
             </div>
           </Link>

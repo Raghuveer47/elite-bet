@@ -5,7 +5,7 @@ import { Input } from '../ui/Input';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { ResponsibleGamingService } from '../../services/responsibleGamingService';
 import { ResponsibleGamingLimits, SelfExclusion } from '../../types/responsibleGaming';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
 import { formatCurrency } from '../../lib/utils';
 import toast from 'react-hot-toast';
 

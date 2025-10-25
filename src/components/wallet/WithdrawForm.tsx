@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import toast from 'react-hot-toast';
-import { useWallet } from '../../contexts/WalletContext';
+import { useWallet } from '../../contexts/SupabaseWalletContext';
 import { PaymentMethod } from '../../types/wallet';
 import { formatCurrency } from '../../lib/utils';
 

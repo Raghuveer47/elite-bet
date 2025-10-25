@@ -5,7 +5,7 @@ import { Input } from '../ui/Input';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { SupportService } from '../../services/supportService';
 import { SupportTicket, LiveChat } from '../../types/support';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
 import { formatDate } from '../../lib/utils';
 import toast from 'react-hot-toast';
 
@@ -257,6 +257,23 @@ export function SupportCenter() {
             <div className="relative mb-6">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
               <Input placeholder="Search FAQ..." className="pl-10" />
+            </div>
+            
+            {/* Contact Information */}
+            <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg p-6 border border-blue-500/30">
+              <div className="flex items-center space-x-4">
+                <Mail className="w-6 h-6 text-blue-400" />
+                <div>
+                  <h4 className="font-medium text-white mb-1">Need More Help?</h4>
+                  <p className="text-sm text-slate-300 mb-2">Contact our support team directly</p>
+                  <a 
+                    href="mailto:support@spinzos.com" 
+                    className="text-blue-400 hover:text-blue-300 font-medium"
+                  >
+                    support@spinzos.com
+                  </a>
+                </div>
+              </div>
             </div>
             
             {/* FAQ Categories */}

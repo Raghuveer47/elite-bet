@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Wallet, ArrowDownLeft, ArrowUpRight, History, ArrowRightLeft, Settings } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { WalletProvider } from '../contexts/WalletContext';
+import { WalletProvider } from '../contexts/SupabaseWalletContext';
 import { WalletOverview } from '../components/wallet/WalletOverview';
 import { DepositForm } from '../components/wallet/DepositForm';
 import { WithdrawForm } from '../components/wallet/WithdrawForm';

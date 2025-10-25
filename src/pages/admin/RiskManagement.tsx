@@ -3,7 +3,7 @@ import {
   AlertTriangle, Shield, Eye, CheckCircle, XCircle, 
   Clock, TrendingUp, Users, DollarSign, Activity
 } from 'lucide-react';
-import { useAdmin } from '../../contexts/AdminContext';
+import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { formatCurrency, formatDate } from '../../lib/utils';

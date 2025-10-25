@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import { PromotionService } from '../../services/promotionService';
 import { Promotion, UserPromotion } from '../../types/promotions';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
 import { formatCurrency } from '../../lib/utils';
 import toast from 'react-hot-toast';
 

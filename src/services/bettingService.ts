@@ -252,18 +252,6 @@ export class BettingService {
     return (bettingData.bets || []).filter((bet: Bet) => bet.userId === userId);
   }
 
-  static async settleBet(betId: string, result: 'won' | 'lost' | 'void', payout?: number): Promise<void> {
-    const bettingData = this.loadBettingData();
-    const bet = bettingData.bets?.find((b: Bet) => b.id === betId);
-    
-    if (bet) {
-      bet.status = result;
-      bet.settledAt = new Date();
-      bet.payout = payout || 0;
-      this.saveBettingData(bettingData);
-    }
-  }
-
   static async calculateCashOut(betId: string): Promise<CashOutOffer | null> {
     const bettingData = this.loadBettingData();
     const bet = bettingData.bets?.find((b: Bet) => b.id === betId);

@@ -55,7 +55,7 @@ export default function Home() {
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-7xl font-bold mb-6">
               <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-green-400 bg-clip-text text-transparent">
-                Elite Bet
+                Spinzos
               </span>
             </h1>
             <p className="text-xl md:text-2xl text-slate-300 mb-8 leading-relaxed">
@@ -82,7 +82,7 @@ export default function Home() {
       <section className="py-20 bg-slate-800/50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Why Choose Elite Bet?</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Why Choose Spinzos?</h2>
             <p className="text-xl text-slate-400">Industry-leading features for the ultimate betting experience</p>
           </div>
           

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Search, Filter, Star, Play, TrendingUp, Zap, Crown, Gift, Target, Trophy } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { WalletProvider } from '../contexts/WalletContext';
+import { WalletProvider } from '../contexts/SupabaseWalletContext';
 import { GameLauncher } from '../components/casino/GameLauncher';
 import { CasinoGame } from '../types/casino';
 import { formatCurrency } from '../lib/utils';

@@ -5,7 +5,7 @@ import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { SupportService } from '../../services/supportService';
 import { SupportTicket, SupportMessage } from '../../types/support';
-import { useAdmin } from '../../contexts/AdminContext';
+import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { formatDate } from '../../lib/utils';
 import toast from 'react-hot-toast';
 
@@ -23,7 +23,7 @@ export function SupportManagement() {
 
     // Listen for new tickets
     const handleNewTicket = (e: StorageEvent) => {
-      if (e.key === 'elitebet_new_ticket' && e.newValue) {
+      if (e.key === 'spinzos_new_ticket' && e.newValue) {
         try {
           const ticket = JSON.parse(e.newValue);
           setTickets(prev => [ticket, ...prev]);

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ResponsibleGamingService } from '../services/responsibleGamingService';
 import { RealityCheck } from '../types/responsibleGaming';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/SupabaseAuthContext';
 
 export function useRealityCheck() {
   const { user } = useAuth();

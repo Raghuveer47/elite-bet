@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { RotateCcw, Coins, Volume2, VolumeX, Trophy, Zap, Split, Shield, Target, Crown } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useAuth } from '../../contexts/AuthContext';
-import { useWallet } from '../../contexts/WalletContext';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
+import { useWallet } from '../../contexts/SupabaseWalletContext';
 import toast from 'react-hot-toast';
 import { useCasinoGame } from '../../hooks/useCasinoGame';
 import { formatCurrency } from '../../lib/utils';
@@ -39,7 +39,7 @@ const CARD_SUITS = {
 
 export function BlackjackGame({ gameId, gameName }: BlackjackGameProps) {
   const { user } = useAuth();
-  const { addTransaction } = useWallet();
+  const { processBet, processWin } = useWallet();
   const { session, isPlaying, setIsPlaying, placeBet, addWinnings, resetSession } = useCasinoGame(gameId);
   const [deck, setDeck] = useState<Card[]>([]);
   const [playerHands, setPlayerHands] = useState<GameHand[]>([]);
@@ -184,21 +184,11 @@ export function BlackjackGame({ gameId, gameName }: BlackjackGameProps) {
       const totalBet = betAmount + sideBets.perfectPairs + sideBets.twentyOnePlusThree;
       placeBet(totalBet);
       
-      addTransaction({
-        userId: user.id,
-        type: 'bet',
-        status: 'completed',
-        amount: -totalBet,
-        currency: 'USD',
-        fee: 0,
-        method: 'Casino Game',
-        description: `${gameName} - Hand (${sideBets.perfectPairs > 0 || sideBets.twentyOnePlusThree > 0 ? 'with side bets' : 'main bet only'})`,
-        metadata: {
-          gameId,
-          gameName,
-          betAmount,
-          sideBets
-        }
+      await processBet(totalBet, 'Casino Game', `${gameName} - Hand (${sideBets.perfectPairs > 0 || sideBets.twentyOnePlusThree > 0 ? 'with side bets' : 'main bet only'})`, {
+        gameId,
+        gameName,
+        betAmount,
+        sideBets
       });
       
       setIsPlaying(true);
@@ -273,18 +263,6 @@ export function BlackjackGame({ gameId, gameName }: BlackjackGameProps) {
       }
       
       if (sideBetWinnings > 0) {
-        addWinnings(sideBetWinnings);
-        addTransaction({
-          userId: user.id,
-          type: 'win',
-          status: 'completed',
-          amount: sideBetWinnings,
-          currency: 'USD',
-          fee: 0,
-          method: 'Casino Game',
-          description: `${gameName} - Side Bet Win`,
-          metadata: { gameId, gameName, sideBetWin: sideBetWinnings }
-        });
       }
       
       // Check for blackjacks
@@ -383,17 +361,6 @@ export function BlackjackGame({ gameId, gameName }: BlackjackGameProps) {
     placeBet(betAmount);
     setGameStats(prev => ({ ...prev, doubles: prev.doubles + 1 }));
     
-    addTransaction({
-      userId: user.id,
-      type: 'bet',
-      status: 'completed',
-      amount: -betAmount,
-      currency: 'USD',
-      fee: 0,
-      method: 'Casino Game',
-      description: `${gameName} - Double Down`,
-      metadata: { gameId, gameName, action: 'double_down' }
-    });
 
     await hit();
     if (!playerHands[activeHandIndex]?.isBust) {
@@ -413,17 +380,6 @@ export function BlackjackGame({ gameId, gameName }: BlackjackGameProps) {
     placeBet(betAmount);
     setGameStats(prev => ({ ...prev, splits: prev.splits + 1 }));
     
-    addTransaction({
-      userId: user.id,
-      type: 'bet',
-      status: 'completed',
-      amount: -betAmount,
-      currency: 'USD',
-      fee: 0,
-      method: 'Casino Game',
-      description: `${gameName} - Split Pair`,
-      metadata: { gameId, gameName, action: 'split' }
-    });
 
     const card1 = currentHand.cards[0];
     const card2 = currentHand.cards[1];
@@ -523,25 +479,6 @@ export function BlackjackGame({ gameId, gameName }: BlackjackGameProps) {
         setTimeout(() => setWinAnimation(false), 4000);
       }
       
-      addTransaction({
-        userId: user.id,
-        type: 'win',
-        status: 'completed',
-        amount: totalWinnings,
-        currency: 'USD',
-        fee: 0,
-        method: 'Casino Game',
-        description: `${gameName} - ${results.join(', ')}`,
-        metadata: {
-          gameId,
-          gameName,
-          results,
-          originalBet: betAmount * playerHands.length,
-          profit,
-          dealerValue: finalDealerHand.value,
-          playerValues: playerHands.map(h => h.value)
-        }
-      });
       
       if (soundEnabled) {
         console.log('🔊 Win sound playing...');
@@ -574,17 +511,6 @@ export function BlackjackGame({ gameId, gameName }: BlackjackGameProps) {
       setWinAnimation(true);
       setTimeout(() => setWinAnimation(false), 4000);
       
-      addTransaction({
-        userId: user.id,
-        type: 'win',
-        status: 'completed',
-        amount: winAmount,
-        currency: 'USD',
-        fee: 0,
-        method: 'Casino Game',
-        description: `${gameName} - ${result}`,
-        metadata: { gameId, gameName, result, originalBet: betAmount }
-      });
     }
   };
 

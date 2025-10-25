@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, User, Wallet, LogOut } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
 import { Button } from '../ui/Button';
-import { cn, formatCurrency } from '../../lib/utils';
+import { cn } from '../../lib/utils';
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -16,6 +16,7 @@ export function Header() {
     { name: 'Live', href: '/live' },
     { name: 'Promotions', href: '/promotions' },
     { name: 'Support', href: '/support' },
+    { name: 'Contact', href: 'mailto:support@spinzos.com', external: true },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -25,35 +26,41 @@ export function Header() {
       <div className="container mx-auto px-2 sm:px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm sm:text-lg">E</span>
-            </div>
-            <span className="text-lg sm:text-xl font-bold text-white">Elite Bet</span>
+          <Link to="/" className="flex items-center space-x-3">
+            <img 
+              src="https://res.cloudinary.com/dy9zlgjh6/image/upload/v1761390123/Gemini_Generated_Image_7764vh7764vh7764_hhd94q.png" 
+              alt="Spinzos Logo" 
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg"
+            />
+            <span className="text-xl sm:text-2xl font-bold text-white">Spinzos</span>
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8">
             {navigation.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={cn(
-                  'text-sm font-medium transition-colors duration-200',
-                  isActive(item.href)
-                    ? 'text-blue-400'
-                    : 'text-slate-300 hover:text-white'
-                )}
-              >
-                {item.name}
-              </Link>
+              item.external ? (
+                <a
+                  key={item.name}
+                  href={item.href}
+                  className="text-sm font-medium transition-colors duration-200 text-slate-300 hover:text-white"
+                >
+                  {item.name}
+                </a>
+              ) : (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={cn(
+                    'text-sm font-medium transition-colors duration-200',
+                    isActive(item.href)
+                      ? 'text-blue-400'
+                      : 'text-slate-300 hover:text-white'
+                  )}
+                >
+                  {item.name}
+                </Link>
+              )
             ))}
-            <Link
-              to="/admin/login"
-              className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors duration-200"
-            >
-              Admin
-            </Link>
           </nav>
 
           {/* User Menu */}
@@ -73,7 +80,7 @@ export function Header() {
                     <span className="hidden lg:inline">{user.firstName}</span>
                   </Button>
                 </Link>
-                <Button variant="ghost" size="sm" onClick={logout}>
+                <Button variant="ghost" size="sm" onClick={() => logout()}>
                   <LogOut className="w-4 h-4" />
                 </Button>
               </>
@@ -103,28 +110,31 @@ export function Header() {
           <div className="lg:hidden py-4 border-t border-slate-800">
             <div className="flex flex-col space-y-4">
               {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={cn(
-                    'text-sm font-medium transition-colors duration-200',
-                    isActive(item.href)
-                      ? 'text-blue-400'
-                      : 'text-slate-300 hover:text-white'
-                  )}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {item.name}
-                </Link>
+                item.external ? (
+                  <a
+                    key={item.name}
+                    href={item.href}
+                    className="text-sm font-medium transition-colors duration-200 text-slate-300 hover:text-white"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {item.name}
+                  </a>
+                ) : (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={cn(
+                      'text-sm font-medium transition-colors duration-200',
+                      isActive(item.href)
+                        ? 'text-blue-400'
+                        : 'text-slate-300 hover:text-white'
+                    )}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    {item.name}
+                  </Link>
+                )
               ))}
-              
-              <Link
-                to="/admin/login"
-                className="text-sm font-medium text-red-400 hover:text-red-300 transition-colors duration-200"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Admin
-              </Link>
               
               {isAuthenticated && user ? (
                 <div className="flex flex-col space-y-2 pt-4 border-t border-slate-800">
@@ -146,7 +156,7 @@ export function Header() {
                       Wallet ({(user.balance || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })})
                     </Button>
                   </Link>
-                  <Button variant="ghost" size="sm" onClick={logout} className="w-full justify-start">
+                  <Button variant="ghost" size="sm" onClick={() => logout()} className="w-full justify-start">
                     <LogOut className="w-4 h-4 mr-2" />
                     Logout
                   </Button>

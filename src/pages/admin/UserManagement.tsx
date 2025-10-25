@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { 
-  Search, Filter, Eye, Edit, Ban, CheckCircle, XCircle, 
-  DollarSign, AlertTriangle, Shield, MoreVertical, Users
+  Search, Filter, CheckCircle, XCircle, 
+  DollarSign, Shield
 } from 'lucide-react';
-import { useAdmin } from '../../contexts/AdminContext';
+import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -14,9 +14,13 @@ export function UserManagement() {
     users, 
     updateUserStatus, 
     verifyUser, 
-    adjustUserBalance, 
+    updateUserBalance, 
     isLoading 
   } = useAdmin();
+  
+  // Debug logging
+  console.log('UserManagement: Users loaded:', users.length, users);
+  console.log('UserManagement: Is loading:', isLoading);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -61,7 +65,7 @@ export function UserManagement() {
     if (!selectedUser || !balanceAdjustment.reason || balanceAdjustment.amount === 0) return;
     
     try {
-      await adjustUserBalance(selectedUser, balanceAdjustment.amount, balanceAdjustment.reason);
+      await updateUserBalance(selectedUser, balanceAdjustment.amount);
       setShowBalanceModal(false);
       setBalanceAdjustment({ amount: 0, reason: '' });
       setSelectedUser(null);
@@ -156,7 +160,16 @@ export function UserManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
-                {filteredUsers.map(user => (
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="text-slate-400">
+                        {users.length === 0 ? 'No users found in database' : 'No users match your search criteria'}
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map(user => (
                   <tr key={user.id} className="hover:bg-slate-700/50">
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-3">
@@ -244,7 +257,8 @@ export function UserManagement() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>

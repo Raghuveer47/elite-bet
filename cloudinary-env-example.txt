@@ -1,0 +1,11 @@
+# Cloudinary Configuration
+# Get these from your Cloudinary dashboard: https://cloudinary.com/console
+
+VITE_CLOUDINARY_CLOUD_NAME=your_cloud_name_here
+VITE_CLOUDINARY_API_KEY=your_api_key_here
+VITE_CLOUDINARY_API_SECRET=your_api_secret_here
+
+# Example:
+# VITE_CLOUDINARY_CLOUD_NAME=elite-bet
+# VITE_CLOUDINARY_API_KEY=123456789012345
+# VITE_CLOUDINARY_API_SECRET=abcdefghijklmnopqrstuvwxyz123456

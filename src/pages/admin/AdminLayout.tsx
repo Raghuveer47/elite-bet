@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAdmin } from '../../contexts/AdminContext';
+import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { AdminSidebar } from '../../components/layout/AdminSidebar';
 import { AdminTopBar } from '../../components/layout/AdminTopBar';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';

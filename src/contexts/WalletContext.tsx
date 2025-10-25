@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { WalletAccount, Transaction, PaymentMethod, DepositRequest, WithdrawRequest, WalletLimits, WalletStats, PendingPayment } from '../types/wallet';
-import { useAuth } from './AuthContext';
-import { DataStorage } from '../utils/dataStorage';
-import { syncManager } from '../utils/syncManager';
-import { eventBus } from '../utils/eventBus';
+import { useAuth } from './SupabaseAuthContext';
+import { SupabaseAuthService } from '../services/supabaseAuthService';
+import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
 interface WalletContextType {

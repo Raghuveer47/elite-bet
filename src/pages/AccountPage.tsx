@@ -5,7 +5,7 @@ import { Input } from '../components/ui/Input';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { KYCVerificationView } from '../components/kyc/KYCVerification';
 import { ResponsibleGamingControls } from '../components/responsibleGaming/ResponsibleGamingControls';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/SupabaseAuthContext';
 import { KYCService } from '../services/kycService';
 import toast from 'react-hot-toast';
 

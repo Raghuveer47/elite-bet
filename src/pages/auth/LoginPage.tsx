@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, LogIn, User, Lock } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -52,7 +52,7 @@ export function LoginPage() {
   };
 
   const fillDemoCredentials = () => {
-    setEmail('demo@elitebet.com');
+    setEmail('demo@spinzos.com');
     setPassword('Demo123!');
   };
 
@@ -66,7 +66,7 @@ export function LoginPage() {
               <LogIn className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Welcome Back</h1>
-            <p className="text-slate-400">Sign in to your Elite Bet account</p>
+            <p className="text-slate-400">Sign in to your Spinzos account</p>
           </div>
 
           {/* Demo Credentials Banner */}
@@ -157,7 +157,7 @@ export function LoginPage() {
           <div className="mt-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
             <p className="text-sm text-green-300 mb-2 font-medium">Demo Credentials:</p>
             <div className="space-y-1 text-xs">
-              <p className="text-green-400">Email: demo@elitebet.com</p>
+              <p className="text-green-400">Email: demo@spinzos.com</p>
               <p className="text-green-400">Password: Demo123!</p>
               <p className="text-slate-400 mt-2">Demo account includes $1000 balance and verified status</p>
             </div>

@@ -5,6 +5,7 @@ export interface WalletAccount {
   accountType: 'main' | 'bonus' | 'locked';
   balance: number;
   reservedBalance: number;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -12,7 +13,7 @@ export interface WalletAccount {
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'deposit' | 'withdraw' | 'bet' | 'win' | 'bonus' | 'refund' | 'fee';
+  type: 'deposit' | 'withdrawal' | 'bet' | 'win' | 'bonus' | 'refund' | 'fee';
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   amount: number;
   currency: string;
@@ -21,10 +22,12 @@ export interface Transaction {
   externalReference?: string;
   provider?: string;
   description: string;
+  reference?: string;
   metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
   completedAt?: Date;
+  balanceAfter?: number; // For balance history display
 }
 
 export interface PaymentMethod {
@@ -38,6 +41,18 @@ export interface PaymentMethod {
   icon: string;
   available: boolean;
   currencies: string[];
+  description?: string;
+  bankDetails?: {
+    bankName: string;
+    accountName: string;
+    accountNumber: string;
+    ifscCode?: string;
+    phoneNumber?: string;
+    branchName?: string;
+    routingNumber?: string;
+    swiftCode?: string;
+    iban?: string;
+  };
 }
 
 export interface DepositRequest {
@@ -48,6 +63,13 @@ export interface DepositRequest {
   transactionId?: string;
   paymentProof?: File;
   base64Image?: string;
+  paymentMethodId?: string;
+  customerName?: string;
+  phoneNumber?: string;
+  bankTransactionId?: string;
+  email?: string;
+  upiId?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface WithdrawRequest {
@@ -55,12 +77,14 @@ export interface WithdrawRequest {
   currency: string;
   method: string;
   destination: string;
+  paymentMethodId?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface PendingPayment {
   id: string;
   userId: string;
-  type: 'deposit' | 'withdraw';
+  type: 'deposit' | 'withdrawal';
   amount: number;
   currency: string;
   method: string;
@@ -73,6 +97,14 @@ export interface PendingPayment {
   reviewedBy?: string;
   rejectionReason?: string;
   adminNotes?: string;
+  reference?: string;
+  description?: string;
+  customerName?: string;
+  email?: string;
+  phoneNumber?: string;
+  upiId?: string;
+  bankTransactionId?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface BankDetails {
@@ -82,6 +114,9 @@ export interface BankDetails {
   routingNumber?: string;
   swiftCode?: string;
   iban?: string;
+  ifscCode?: string;
+  phoneNumber?: string;
+  branchName?: string;
   reference: string;
 }
 
@@ -107,4 +142,5 @@ export interface WalletStats {
   todayWithdrawn: number;
   monthDeposited: number;
   monthWithdrawn: number;
+  totalDeposits: number;
 }

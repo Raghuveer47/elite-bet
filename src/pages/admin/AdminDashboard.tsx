@@ -8,11 +8,12 @@ import {
   Calendar, MapPin, Filter, Search, Download, Upload, Edit,
   Plus, Minus, X, ArrowUp, ArrowDown, ArrowRight, Play, Pause
 } from 'lucide-react';
-import { useAdmin } from '../../contexts/AdminContext';
+import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { SyncMonitor } from '../../components/admin/SyncMonitor';
+import { PendingDepositsManager } from '../../components/admin/PendingDepositsManager';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { Link } from 'react-router-dom';
 
@@ -20,11 +21,13 @@ export function AdminDashboard() {
   const { 
     systemStats, 
     users, 
-    getAllTransactions, 
+    transactions,
     pendingPayments, 
     riskAlerts, 
     games,
-    refreshSystemStats,
+    refreshData,
+    refreshLocalTransactions,
+    forceRefresh,
     isLoading 
   } = useAdmin();
 
@@ -44,7 +47,6 @@ export function AdminDashboard() {
 
   useEffect(() => {
     // Load real recent activity from transactions and user actions
-    const transactions = getAllTransactions();
     const activity = transactions.slice(0, 10).map(transaction => {
       const user = users.find(u => u.id === transaction.userId);
       return {
@@ -74,7 +76,7 @@ export function AdminDashboard() {
     }, 3000);
 
     return () => clearInterval(metricsInterval);
-  }, [getAllTransactions, users]);
+  }, [users, transactions]);
 
   const kpiCards = [
     {
@@ -273,9 +275,17 @@ export function AdminDashboard() {
             <option value="7d">Last 7 Days</option>
             <option value="30d">Last 30 Days</option>
           </select>
-          <Button variant="outline" size="sm" onClick={refreshSystemStats} disabled={isLoading}>
+          <Button variant="outline" size="sm" onClick={refreshData} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
+          </Button>
+          <Button variant="outline" size="sm" onClick={refreshLocalTransactions}>
+            <Database className="w-4 h-4 mr-2" />
+            Refresh Local
+          </Button>
+          <Button variant="outline" size="sm" onClick={forceRefresh} disabled={isLoading}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Force Refresh
           </Button>
         </div>
       </div>
@@ -784,6 +794,13 @@ export function AdminDashboard() {
                 <p className="text-xs text-slate-400">1 hour ago</p>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Pending Deposits Section */}
+        <div className="bg-slate-800 rounded-xl border border-slate-700">
+          <div className="p-6">
+            <PendingDepositsManager />
           </div>
         </div>
       </div>

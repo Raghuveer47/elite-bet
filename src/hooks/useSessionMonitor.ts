@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { SessionManager } from '../utils/sessionStorage';
+import { useAuth } from '../contexts/SupabaseAuthContext';
+import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
 export function useSessionMonitor() {
@@ -8,21 +8,42 @@ export function useSessionMonitor() {
 
   useEffect(() => {
     // Monitor for session expiry
-    const checkSessions = () => {
-      // Check user session
-      if (isAuthenticated && !SessionManager.isUserSessionValid()) {
-        userLogout();
-        toast.error('Your session has expired. Please login again.');
+    const checkSessions = async () => {
+      // Check user session with Supabase
+      if (isAuthenticated) {
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error || !session) {
+            userLogout();
+            toast.error('Your session has expired. Please login again.');
+            return;
+          }
+
+          // Check if session is expired
+          if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
+            userLogout();
+            toast.error('Your session has expired. Please login again.');
+            return;
+          }
+        } catch (error) {
+          console.error('Session check error:', error);
+          userLogout();
+          toast.error('Session validation failed. Please login again.');
+        }
       }
 
       // Check admin session (only if we're in admin context)
       try {
-        const adminSession = SessionManager.getAdminSession();
-        if (adminSession && !SessionManager.isAdminSessionValid()) {
-          SessionManager.clearAdminSession();
-          toast.error('Admin session has expired. Please login again.');
-          if (window.location.pathname.startsWith('/admin')) {
-            window.location.href = '/admin/login';
+        const adminSession = localStorage.getItem('elitebet_admin_session');
+        if (adminSession) {
+          const session = JSON.parse(adminSession);
+          if (new Date(session.expiresAt) < new Date()) {
+            localStorage.removeItem('elitebet_admin_session');
+            toast.error('Admin session has expired. Please login again.');
+            if (window.location.pathname.startsWith('/admin')) {
+              window.location.href = '/admin/login';
+            }
           }
         }
       } catch (error) {
@@ -41,28 +62,49 @@ export function useSessionMonitor() {
 
   // Handle browser tab visibility changes
   useEffect(() => {
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (!document.hidden) {
         // Tab became visible, check if sessions are still valid
-        setTimeout(() => {
-          if (isAuthenticated && !SessionManager.isUserSessionValid()) {
-            userLogout();
-            toast.error('Your session expired while you were away.');
-          }
-          
-        // Check admin session without requiring AdminContext
-        try {
-          const adminSession = SessionManager.getAdminSession();
-          if (adminSession && !SessionManager.isAdminSessionValid()) {
-            SessionManager.clearAdminSession();
-            toast.error('Admin session expired while you were away.');
-            if (window.location.pathname.startsWith('/admin')) {
-              window.location.href = '/admin/login';
+        setTimeout(async () => {
+          if (isAuthenticated) {
+            try {
+              const { data: { session }, error } = await supabase.auth.getSession();
+              
+              if (error || !session) {
+                userLogout();
+                toast.error('Your session expired while you were away.');
+                return;
+              }
+
+              // Check if session is expired
+              if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
+                userLogout();
+                toast.error('Your session expired while you were away.');
+                return;
+              }
+            } catch (error) {
+              console.error('Session check error:', error);
+              userLogout();
+              toast.error('Session validation failed.');
             }
           }
-        } catch (error) {
-          // Ignore admin context errors if not in admin area
-        }
+          
+          // Check admin session without requiring AdminContext
+          try {
+            const adminSession = localStorage.getItem('elitebet_admin_session');
+            if (adminSession) {
+              const session = JSON.parse(adminSession);
+              if (new Date(session.expiresAt) < new Date()) {
+                localStorage.removeItem('elitebet_admin_session');
+                toast.error('Admin session expired while you were away.');
+                if (window.location.pathname.startsWith('/admin')) {
+                  window.location.href = '/admin/login';
+                }
+              }
+            }
+          } catch (error) {
+            // Ignore admin context errors if not in admin area
+          }
         }, 100);
       }
     };

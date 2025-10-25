@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { RotateCcw, Coins, Volume2, VolumeX, Trophy, Zap, Target, TrendingUp } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useAuth } from '../../contexts/AuthContext';
-import { useWallet } from '../../contexts/WalletContext';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
+import { useWallet } from '../../contexts/SupabaseWalletContext';
 import toast from 'react-hot-toast';
 import { useCasinoGame } from '../../hooks/useCasinoGame';
 import { formatCurrency } from '../../lib/utils';
@@ -30,7 +30,7 @@ const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 
 
 export function RouletteGame({ gameId, gameName }: RouletteGameProps) {
   const { user } = useAuth();
-  const { addTransaction } = useWallet();
+  const { processBet, processWin } = useWallet();
   const { session, isPlaying, setIsPlaying, placeBet, addWinnings, resetSession } = useCasinoGame(gameId);
   const [betAmount, setBetAmount] = useState(10);
   const [bets, setBets] = useState<Bet[]>([]);
@@ -279,26 +279,17 @@ export function RouletteGame({ gameId, gameName }: RouletteGameProps) {
     try {
       bets.forEach(bet => placeBet(bet.amount));
       
-      bets.forEach(bet => {
-        addTransaction({
-          userId: user.id,
-          type: 'bet',
-          status: 'completed',
-          amount: -bet.amount,
-          currency: 'USD',
-          fee: 0,
-          method: 'Casino Game',
-          description: `${gameName} - ${bet.label} (${bet.payout}:1)`,
-          metadata: {
-            gameId,
-            gameName,
-            betType: bet.type,
-            betValue: bet.value,
-            betAmount: bet.amount,
-            expectedPayout: bet.payout
-          }
+      // Process all bets
+      for (const bet of bets) {
+        await processBet(bet.amount, 'Casino Game', `${gameName} - ${bet.label} (${bet.payout}:1)`, {
+          gameId,
+          gameName,
+          betType: bet.type,
+          betValue: bet.value,
+          betAmount: bet.amount,
+          expectedPayout: bet.payout
         });
-      });
+      }
       
       setIsPlaying(true);
       setIsSpinning(true);
@@ -336,24 +327,14 @@ export function RouletteGame({ gameId, gameName }: RouletteGameProps) {
         const profit = totalWinnings - totalBetAmount;
         const multiplier = totalWinnings / totalBetAmount;
         
-        addTransaction({
-          userId: user.id,
-          type: 'win',
-          status: 'completed',
-          amount: totalWinnings,
-          currency: 'USD',
-          fee: 0,
-          method: 'Casino Game',
-          description: `${gameName} - Win on ${result.number} ${result.color} (${multiplier.toFixed(1)}x)`,
-          metadata: {
-            gameId,
-            gameName,
-            result,
-            winningBets: winning.length,
-            totalBets: bets.length,
-            profit,
-            multiplier
-          }
+        await processWin(totalWinnings, 'Casino Game', `${gameName} - Win on ${result.number} ${result.color} (${multiplier.toFixed(1)}x)`, {
+          gameId,
+          gameName,
+          result,
+          winningBets: winning.length,
+          totalBets: bets.length,
+          profit,
+          multiplier
         });
         
         if (soundEnabled) {

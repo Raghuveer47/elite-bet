@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Play, RotateCcw, Coins, Volume2, VolumeX, Settings, Trophy, Zap, Star, Crown } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useAuth } from '../../contexts/AuthContext';
-import { useWallet } from '../../contexts/WalletContext';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
+import { useWallet } from '../../contexts/SupabaseWalletContext';
 import toast from 'react-hot-toast';
 import { useCasinoGame } from '../../hooks/useCasinoGame';
 import { formatCurrency } from '../../lib/utils';
@@ -40,7 +40,7 @@ const PAYLINES = [
 
 export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
   const { user } = useAuth();
-  const { addTransaction } = useWallet();
+  const { processBet, processWin } = useWallet();
   const { session, isPlaying, setIsPlaying, placeBet, addWinnings, resetSession } = useCasinoGame(gameId);
   const [betAmount, setBetAmount] = useState(10);
   const [activePaylines, setActivePaylines] = useState(9);
@@ -194,21 +194,11 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
       const totalBet = betAmount * activePaylines;
       placeBet(totalBet);
       
-      addTransaction({
-        userId: user.id,
-        type: 'bet',
-        status: 'completed',
-        amount: -totalBet,
-        currency: 'USD',
-        fee: 0,
-        method: 'Casino Game',
-        description: `${gameName} - Spin (${activePaylines} lines @ ${formatCurrency(betAmount)})`,
-        metadata: {
-          gameId,
-          gameName,
-          betAmount: totalBet,
-          paylines: activePaylines
-        }
+      await processBet(totalBet, 'Casino Game', `${gameName} - Spin (${activePaylines} lines @ ${formatCurrency(betAmount)})`, {
+        gameId,
+        gameName,
+        betAmount: totalBet,
+        paylines: activePaylines
       });
       
       setIsPlaying(true);
@@ -230,23 +220,13 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
         setWinAnimation(true);
         setTimeout(() => setWinAnimation(false), 3000);
         
-        addTransaction({
-          userId: user.id,
-          type: 'win',
-          status: 'completed',
-          amount: totalPayout,
-          currency: 'USD',
-          fee: 0,
-          method: 'Casino Game',
-          description: `${gameName} - Win (${maxMultiplier.toFixed(1)}x multiplier)`,
-          metadata: {
-            gameId,
-            gameName,
-            originalBet: totalBet,
-            multiplier: maxMultiplier,
-            winLines: newWinLines.length,
-            paylines: activePaylines
-          }
+        await processWin(totalPayout, 'Casino Game', `${gameName} - Win (${maxMultiplier.toFixed(1)}x multiplier)`, {
+          gameId,
+          gameName,
+          originalBet: totalBet,
+          multiplier: maxMultiplier,
+          winLines: newWinLines.length,
+          paylines: activePaylines
         });
         
         if (maxMultiplier >= 20) {

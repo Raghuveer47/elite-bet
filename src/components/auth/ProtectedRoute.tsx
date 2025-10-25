@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 
 interface ProtectedRouteProps {
@@ -12,6 +12,7 @@ export function ProtectedRoute({ children, requireAuth = true }: ProtectedRouteP
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
+  // Don't show loading if we're not actually loading
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">

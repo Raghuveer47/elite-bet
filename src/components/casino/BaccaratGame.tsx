@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Crown, Coins, Volume2, VolumeX, Trophy, Zap, Target, RotateCcw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useAuth } from '../../contexts/AuthContext';
-import { useWallet } from '../../contexts/WalletContext';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
+import { useWallet } from '../../contexts/SupabaseWalletContext';
 import toast from 'react-hot-toast';
 import { useCasinoGame } from '../../hooks/useCasinoGame';
 import { formatCurrency } from '../../lib/utils';
@@ -41,7 +41,7 @@ const CARD_SUITS = {
 
 export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
   const { user } = useAuth();
-  const { addTransaction } = useWallet();
+  const { processBet, processWin } = useWallet();
   const { session, isPlaying, setIsPlaying, placeBet, addWinnings, resetSession } = useCasinoGame(gameId);
   const [deck, setDeck] = useState<Card[]>([]);
   const [playerHand, setPlayerHand] = useState<BaccaratHand | null>(null);
@@ -178,23 +178,6 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
       bets.forEach(bet => placeBet(bet.amount));
       
       bets.forEach(bet => {
-        addTransaction({
-          userId: user.id,
-          type: 'bet',
-          status: 'completed',
-          amount: -bet.amount,
-          currency: 'USD',
-          fee: 0,
-          method: 'Casino Game',
-          description: `${gameName} - ${bet.type.replace('_', ' ').toUpperCase()} (${bet.payout}:1)`,
-          metadata: {
-            gameId,
-            gameName,
-            betType: bet.type,
-            betAmount: bet.amount,
-            expectedPayout: bet.payout
-          }
-        });
       });
       
       setIsPlaying(true);
@@ -386,26 +369,6 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
       const profit = totalWinnings - bets.reduce((sum, bet) => sum + bet.amount, 0);
       const multiplier = totalWinnings / bets.reduce((sum, bet) => sum + bet.amount, 0);
       
-      addTransaction({
-        userId: user.id,
-        type: 'win',
-        status: 'completed',
-        amount: totalWinnings,
-        currency: 'USD',
-        fee: 0,
-        method: 'Casino Game',
-        description: `${gameName} - ${winningBets.join(', ')} (${multiplier.toFixed(1)}x)`,
-        metadata: {
-          gameId,
-          gameName,
-          winner,
-          playerValue,
-          bankerValue,
-          winningBets,
-          profit,
-          multiplier
-        }
-      });
       
       if (soundEnabled) {
         console.log('🔊 Win sound playing...');

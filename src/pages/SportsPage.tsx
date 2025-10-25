@@ -7,8 +7,8 @@ import {
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { useWallet } from '../contexts/WalletContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useWallet } from '../contexts/SupabaseWalletContext';
+import { useAuth } from '../contexts/SupabaseAuthContext';
 import { SportsApiService } from '../services/sportsApiService';
 import { BettingService } from '../services/bettingService';
 import { formatCurrency, formatOdds } from '../lib/utils';

@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Gift, Smartphone, Laptop, Headphones, Watch, Crown, Zap, Trophy, Star, Target, Coins, RotateCcw } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { useAuth } from '../../contexts/AuthContext';
-import { useWallet } from '../../contexts/WalletContext';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
+import { useWallet } from '../../contexts/SupabaseWalletContext';
 import toast from 'react-hot-toast';
 import { useCasinoGame } from '../../hooks/useCasinoGame';
 import { formatCurrency } from '../../lib/utils';
@@ -115,7 +115,7 @@ const PRIZES: Prize[] = [
 
 export function LotteryGame({ gameId, gameName }: LotteryGameProps) {
   const { user } = useAuth();
-  const { addTransaction } = useWallet();
+  const { processBet, processWin } = useWallet();
   const { session, isPlaying, setIsPlaying, placeBet, addWinnings, resetSession } = useCasinoGame(gameId);
   const [selectedNumbers, setSelectedNumbers] = useState<number[]>([]);
   const [stakeAmount, setStakeAmount] = useState(50);
@@ -191,23 +191,6 @@ export function LotteryGame({ gameId, gameName }: LotteryGameProps) {
       
       setTickets(prev => [ticket, ...prev]);
       
-      addTransaction({
-        userId: user.id,
-        type: 'bet',
-        status: 'completed',
-        amount: -stakeAmount,
-        currency: 'USD',
-        fee: 0,
-        method: 'Casino Game',
-        description: `${gameName} - Lottery Ticket (${selectedNumbers.join(', ')})`,
-        metadata: {
-          gameId,
-          gameName,
-          ticketNumbers: selectedNumbers,
-          stakeAmount,
-          winChance: (winChance * 100).toFixed(1)
-        }
-      });
       
       setGameStats(prev => ({
         ...prev,
@@ -305,24 +288,6 @@ export function LotteryGame({ gameId, gameName }: LotteryGameProps) {
       // Award cash equivalent
       addWinnings(wonPrize.value);
       
-      addTransaction({
-        userId: user.id,
-        type: 'win',
-        status: 'completed',
-        amount: wonPrize.value,
-        currency: 'USD',
-        fee: 0,
-        method: 'Casino Game',
-        description: `${gameName} - WON ${wonPrize.name}! (${formatCurrency(wonPrize.value)} value)`,
-        metadata: {
-          gameId,
-          gameName,
-          prizeWon: wonPrize.name,
-          prizeValue: wonPrize.value,
-          drawnNumbers,
-          winningTickets: tickets.length
-        }
-      });
       
       setGameStats(prev => ({
         ...prev,

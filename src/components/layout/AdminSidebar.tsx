@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, Home, LogOut, Activity,
   TrendingUp, Bell, Clock, CheckCircle
 } from 'lucide-react';
-import { useAdmin } from '../../contexts/AdminContext';
+import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { Button } from '../ui/Button';
 import { cn } from '../../lib/utils';
 

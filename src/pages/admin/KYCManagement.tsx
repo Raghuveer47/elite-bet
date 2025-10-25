@@ -5,7 +5,7 @@ import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { KYCService } from '../../services/kycService';
 import { KYCVerification, KYCDocument } from '../../types/kyc';
-import { useAdmin } from '../../contexts/AdminContext';
+import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { formatDate } from '../../lib/utils';
 import toast from 'react-hot-toast';
 

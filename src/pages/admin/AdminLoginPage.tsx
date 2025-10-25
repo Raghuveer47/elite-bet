@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Shield, Eye, EyeOff } from 'lucide-react';
-import { useAdmin } from '../../contexts/AdminContext';
+import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -54,10 +54,12 @@ export function AdminLoginPage() {
         <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Shield className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Admin Portal</h1>
+            <img 
+              src="https://res.cloudinary.com/dy9zlgjh6/image/upload/v1761390123/Gemini_Generated_Image_7764vh7764vh7764_hhd94q.png" 
+              alt="Spinzos Logo" 
+              className="w-16 h-16 rounded-2xl mx-auto mb-4"
+            />
+            <h1 className="text-2xl font-bold text-white mb-2">Spinzos Admin Portal</h1>
             <p className="text-slate-400">Secure administrative access</p>
           </div>
 
@@ -68,7 +70,7 @@ export function AdminLoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@elitebet.com"
+              placeholder="admin@spinzos.com"
               error={errors.email}
               disabled={isLoading}
             />
@@ -111,7 +113,7 @@ export function AdminLoginPage() {
           {/* Demo Credentials */}
           <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
             <p className="text-sm text-red-300 mb-2">Demo Admin Credentials:</p>
-            <p className="text-xs text-red-400">Email: admin@elitebet.com</p>
+            <p className="text-xs text-red-400">Email: admin@spinzos.com</p>
             <p className="text-xs text-red-400">Password: Admin123!</p>
           </div>
 

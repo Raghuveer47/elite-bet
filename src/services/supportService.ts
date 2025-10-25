@@ -1,7 +1,7 @@
 import { SupportTicket, SupportMessage, LiveChat, ChatMessage } from '../types/support';
 
 export class SupportService {
-  private static readonly SUPPORT_STORAGE_KEY = 'elitebet_support';
+  private static readonly SUPPORT_STORAGE_KEY = 'spinzos_support';
 
   static saveSupportData(data: any): void {
     try {
@@ -66,7 +66,7 @@ export class SupportService {
 
     // Trigger storage event for admin notification
     window.dispatchEvent(new StorageEvent('storage', {
-      key: 'elitebet_new_ticket',
+      key: 'spinzos_new_ticket',
       newValue: JSON.stringify(ticket)
     }));
 
@@ -123,7 +123,7 @@ export class SupportService {
         chatId: '',
         senderId: 'system',
         senderType: 'system',
-        message: 'Welcome to Elite Bet support. An agent will be with you shortly.',
+        message: 'Welcome to Spinzos support. An agent will be with you shortly.',
         timestamp: new Date()
       }]
     };
