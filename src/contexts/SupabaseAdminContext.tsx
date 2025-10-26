@@ -68,6 +68,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize admin session
   useEffect(() => {
+    let isMounted = true;
+    const loadingTimeout = setTimeout(() => {
+      console.log('AdminContext: Loading timeout reached');
+      if (isMounted) {
+        setIsLoading(false);
+      }
+    }, 5000); // 5 seconds max loading time
+
     const initializeAdminSession = async () => {
       try {
         console.log('AdminContext: Initializing admin session...');
@@ -77,20 +85,29 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         if (adminSession) {
           const session = JSON.parse(adminSession);
           if (session.adminUser && new Date(session.expiresAt) > new Date()) {
-            setAdminUser(session.adminUser);
-            await loadAllData();
-            console.log('AdminContext: Admin session restored');
+            if (isMounted) {
+              setAdminUser(session.adminUser);
+              await loadAllData();
+              console.log('AdminContext: Admin session restored');
+            }
           }
         }
       } catch (error) {
         console.error('AdminContext: Failed to initialize admin session:', error);
       } finally {
-        setIsLoading(false);
-        console.log('AdminContext: Initialization complete');
+        if (isMounted) {
+          setIsLoading(false);
+          console.log('AdminContext: Initialization complete');
+        }
       }
     };
 
     initializeAdminSession();
+
+    return () => {
+      isMounted = false;
+      clearTimeout(loadingTimeout);
+    };
   }, []);
 
   // Listen for Supabase changes (no localStorage fallback)

@@ -41,10 +41,12 @@ export function AdminLoginPage() {
     if (!validateForm()) return;
     
     try {
+      setErrors({}); // Clear any previous errors
       await adminLogin(email, password);
       navigate(from, { replace: true });
     } catch (error) {
-      setErrors({ password: 'Invalid admin credentials' });
+      console.error('Admin login error:', error);
+      setErrors({ password: 'Invalid admin credentials. Please check your email and password.' });
     }
   };
 

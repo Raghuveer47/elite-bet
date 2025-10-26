@@ -30,11 +30,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize session on app start
   useEffect(() => {
+    let isMounted = true;
+    let loadingTimeout: NodeJS.Timeout;
+    
     // Set a maximum loading time to prevent infinite loading
-    const loadingTimeout = setTimeout(() => {
+    loadingTimeout = setTimeout(() => {
       console.log('AuthContext: Loading timeout reached, stopping loading state');
-      setIsLoading(false);
-    }, 10000); // 10 seconds max loading time
+      if (isMounted) {
+        setIsLoading(false);
+      }
+    }, 5000); // 5 seconds max loading time
 
     const initializeSession = async () => {
       try {
@@ -43,7 +48,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Check if Supabase is properly configured
         if (!supabaseUrl || !supabaseAnonKey) {
           console.error('AuthContext: Supabase not configured');
-          setIsLoading(false);
+          if (isMounted) {
+            setIsLoading(false);
+          }
           return;
         }
         
@@ -245,6 +252,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => {
+      isMounted = false;
       clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };

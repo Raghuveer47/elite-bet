@@ -10,6 +10,7 @@ import { Header } from './components/layout/Header';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AdminProtectedRoute } from './components/auth/AdminProtectedRoute';
 import { EmailVerificationHandler } from './components/auth/EmailVerificationHandler';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import LandingPage from './pages/LandingPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
@@ -30,15 +31,15 @@ import { KYCManagement } from './pages/admin/KYCManagement';
 import { PromotionManagement } from './pages/admin/PromotionManagement';
 import { SupportManagement } from './pages/admin/SupportManagement';
 import { AdminLayout } from './pages/admin/AdminLayout';
-// Notification components disabled
-// import { LiveNotificationSystem } from './components/notifications/LiveNotificationSystem';
-// import { ActivityFeed } from './components/notifications/ActivityFeed';
-// import { FloatingWinners } from './components/notifications/FloatingWinners';
-// import { JackpotTicker } from './components/notifications/JackpotTicker';
+import { NotFoundPage } from './pages/NotFoundPage';
+import { LiveNotificationSystem } from './components/notifications/LiveNotificationSystem';
+import { ActivityFeed } from './components/notifications/ActivityFeed';
+import { FloatingWinners } from './components/notifications/FloatingWinners';
+import { JackpotTicker } from './components/notifications/JackpotTicker';
 
-// import { useRealisticNotifications } from './hooks/useRealisticNotifications';
+import { useRealisticNotifications } from './hooks/useRealisticNotifications';
 function AppContent() {
-  // useRealisticNotifications(); // Disabled notifications
+  useRealisticNotifications(); // Enable notifications
 
   return (
     <Routes>
@@ -76,13 +77,12 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            {/* Notifications disabled */}
-            {/* <div className="fixed inset-0 pointer-events-none z-20">
+            <div className="fixed inset-0 pointer-events-none z-20">
               <LiveNotificationSystem />
               <ActivityFeed />
               <FloatingWinners />
               <JackpotTicker />
-            </div> */}
+            </div>
             <DashboardPage />
           </div>
         </ProtectedRoute>
@@ -106,13 +106,12 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            {/* Notifications disabled */}
-            {/* <div className="fixed inset-0 pointer-events-none z-20">
+            <div className="fixed inset-0 pointer-events-none z-20">
               <LiveNotificationSystem />
               <ActivityFeed />
               <FloatingWinners />
               <JackpotTicker />
-            </div> */}
+            </div>
             <CasinoPage />
           </div>
         </ProtectedRoute>
@@ -121,13 +120,12 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            {/* Notifications disabled */}
-            {/* <div className="fixed inset-0 pointer-events-none z-20">
+            <div className="fixed inset-0 pointer-events-none z-20">
               <LiveNotificationSystem />
               <ActivityFeed />
               <FloatingWinners />
               <JackpotTicker />
-            </div> */}
+            </div>
             <WalletPage />
           </div>
         </ProtectedRoute>
@@ -136,13 +134,12 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            {/* Notifications disabled */}
-            {/* <div className="fixed inset-0 pointer-events-none z-20">
+            <div className="fixed inset-0 pointer-events-none z-20">
               <LiveNotificationSystem />
               <ActivityFeed />
               <FloatingWinners />
               <JackpotTicker />
-            </div> */}
+            </div>
             <AccountPage />
           </div>
         </ProtectedRoute>
@@ -151,13 +148,12 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            {/* Notifications disabled */}
-            {/* <div className="fixed inset-0 pointer-events-none z-20">
+            <div className="fixed inset-0 pointer-events-none z-20">
               <LiveNotificationSystem />
               <ActivityFeed />
               <FloatingWinners />
               <JackpotTicker />
-            </div> */}
+            </div>
             <PromotionsPage />
           </div>
         </ProtectedRoute>
@@ -166,13 +162,12 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            {/* Notifications disabled */}
-            {/* <div className="fixed inset-0 pointer-events-none z-20">
+            <div className="fixed inset-0 pointer-events-none z-20">
               <LiveNotificationSystem />
               <ActivityFeed />
               <FloatingWinners />
               <JackpotTicker />
-            </div> */}
+            </div>
             <SupportPage />
           </div>
         </ProtectedRoute>
@@ -257,34 +252,38 @@ function AppContent() {
       } />
       
       {/* Catch all route */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
       </Routes>
   );
 }
 function App() {
   return (
-    <AuthProvider>
-      <SessionMonitorWrapper>
-        <AdminProvider>
-          <WalletProvider>
-            <Router>
-              <AppContent />
-              <Toaster 
-                position="top-right"
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    background: '#1e293b',
-                    color: '#fff',
-                    border: '1px solid #334155'
-                  }
-                }}
-              />
-            </Router>
-          </WalletProvider>
-        </AdminProvider>
-      </SessionMonitorWrapper>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <SessionMonitorWrapper>
+          <AdminProvider>
+            <WalletProvider>
+              <Router>
+                <ErrorBoundary>
+                  <AppContent />
+                </ErrorBoundary>
+                <Toaster 
+                  position="top-right"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: '#1e293b',
+                      color: '#fff',
+                      border: '1px solid #334155'
+                    }
+                  }}
+                />
+              </Router>
+            </WalletProvider>
+          </AdminProvider>
+        </SessionMonitorWrapper>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

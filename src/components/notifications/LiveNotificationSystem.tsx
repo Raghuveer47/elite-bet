@@ -55,6 +55,7 @@ const LOTTERY_PRIZES = [
 export function LiveNotificationSystem() {
   const [notifications, setNotifications] = useState<LiveNotification[]>([]);
   const [isActive, setIsActive] = useState(true);
+  const [visibleNotifications, setVisibleNotifications] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!isActive) return;
@@ -129,11 +130,21 @@ export function LiveNotificationSystem() {
     const generateRandomNotification = () => {
       const notification = generateNotification();
       setNotifications(prev => [notification, ...prev.slice(0, 4)]); // Keep only 5 notifications
+      setVisibleNotifications(prev => new Set(prev).add(notification.id));
 
-      // Remove notification after display time
+      // Auto-hide notification after 3 seconds
       setTimeout(() => {
-        setNotifications(prev => prev.filter(n => n.id !== notification.id));
-      }, notification.special ? 8000 : 5000);
+        setVisibleNotifications(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(notification.id);
+          return newSet;
+        });
+        
+        // Remove from list after hide animation (300ms)
+        setTimeout(() => {
+          setNotifications(prev => prev.filter(n => n.id !== notification.id));
+        }, 300);
+      }, 3000);
     };
 
     // Initial burst of notifications
@@ -223,23 +234,37 @@ export function LiveNotificationSystem() {
           const gradient = getNotificationColor(notification.type, notification.special || false);
           
           return (
-            <motion.div
+                          <motion.div
               key={notification.id}
               initial={{ x: 400, opacity: 0, scale: 0.8 }}
-              animate={{ x: 0, opacity: 1, scale: 1 }}
+              animate={{ 
+                x: visibleNotifications.has(notification.id) ? 0 : 400, 
+                opacity: visibleNotifications.has(notification.id) ? 1 : 0, 
+                scale: visibleNotifications.has(notification.id) ? 1 : 0.8 
+              }}
               exit={{ x: 400, opacity: 0, scale: 0.8 }}
               transition={{ 
                 type: "spring", 
                 stiffness: 300, 
                 damping: 30,
-                duration: 0.6
+                duration: 0.3
               }}
               className={`
                 bg-gradient-to-r ${gradient} p-2 sm:p-3 rounded-lg border border-white/20 shadow-lg backdrop-blur-sm
                 w-full pointer-events-auto cursor-pointer hover:scale-105 transition-transform duration-200
                 ${notification.special ? 'animate-pulse shadow-2xl shadow-yellow-400/50' : ''}
+                ${visibleNotifications.has(notification.id) ? '' : 'opacity-50'}
               `}
-              onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))}
+              onClick={() => {
+                setVisibleNotifications(prev => {
+                  const newSet = new Set(prev);
+                  newSet.delete(notification.id);
+                  return newSet;
+                });
+                setTimeout(() => {
+                  setNotifications(prev => prev.filter(n => n.id !== notification.id));
+                }, 300);
+              }}
             >
               {/* Special effects for big wins */}
               {notification.special && (
@@ -278,6 +303,21 @@ export function LiveNotificationSystem() {
                       <Zap className="w-2 h-2 text-yellow-200 animate-pulse" />
                     )}
                   </div>
+                  
+                  {/* Undo button */}
+                  {!visibleNotifications.has(notification.id) && (
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setVisibleNotifications(prev => new Set(prev).add(notification.id));
+                      }}
+                      className="mt-2 w-full bg-white/20 hover:bg-white/30 text-white text-xs py-1 px-2 rounded transition-colors"
+                    >
+                      Undo
+                    </motion.button>
+                  )}
                 </div>
               </div>
 
