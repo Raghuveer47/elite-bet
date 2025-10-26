@@ -11,7 +11,6 @@ import { WalletProvider, useWallet } from '../contexts/SupabaseWalletContext';
 import { formatCurrency, formatDate } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { WelcomeBonusNotification } from '../components/WelcomeBonusNotification';
-import { TestWinButton } from '../components/TestWinButton';
 import { BalanceDebugger } from '../components/BalanceDebugger';
 
 function DashboardContent() {
@@ -770,9 +769,6 @@ function DashboardContent() {
       
       {/* Welcome Bonus Notification */}
       <WelcomeBonusNotification />
-      
-      {/* Test Win Button - Remove this after testing */}
-      <TestWinButton />
     </div>
   );
 }

@@ -76,11 +76,11 @@ export function ActivityFeed() {
     const initialActivities = Array.from({ length: 8 }, generateActivity);
     setActivities(initialActivities);
 
-    // Generate new activities periodically
+    // Generate new activities periodically (reduced frequency)
     const interval = setInterval(() => {
       const newActivity = generateActivity();
       setActivities(prev => [newActivity, ...prev.slice(0, 19)]); // Keep only 20 activities
-    }, Math.random() * 3000 + 1500); // Random interval 1.5-4.5 seconds
+    }, Math.random() * 15000 + 10000); // Random interval 10-25 seconds (much slower)
 
     return () => clearInterval(interval);
   }, []);
@@ -135,7 +135,7 @@ export function ActivityFeed() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-4 left-2 sm:left-4 w-64 sm:w-72 max-h-48 sm:max-h-64 z-30">
+    <div className="fixed bottom-4 left-2 sm:left-4 w-64 sm:w-72 max-h-48 sm:max-h-64 z-[25]">
       {/* Header */}
       <div className="bg-slate-800/95 backdrop-blur-sm rounded-t-lg p-2 sm:p-3 border border-slate-700 border-b-0">
         <div className="flex items-center justify-between">

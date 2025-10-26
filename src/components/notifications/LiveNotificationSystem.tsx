@@ -56,6 +56,7 @@ export function LiveNotificationSystem() {
   const [notifications, setNotifications] = useState<LiveNotification[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [visibleNotifications, setVisibleNotifications] = useState<Set<string>>(new Set());
+  const [nextNotificationTime, setNextNotificationTime] = useState(Date.now() + 3000);
 
   useEffect(() => {
     if (!isActive) return;
@@ -126,39 +127,47 @@ export function LiveNotificationSystem() {
       };
     };
 
-    // Generate notifications at random intervals
+    // Generate notifications one at a time
     const generateRandomNotification = () => {
-      const notification = generateNotification();
-      setNotifications(prev => [notification, ...prev.slice(0, 4)]); // Keep only 5 notifications
-      setVisibleNotifications(prev => new Set(prev).add(notification.id));
+      const now = Date.now();
+      
+      // Only show notification if enough time has passed
+      if (now >= nextNotificationTime) {
+        const notification = generateNotification();
+        setNotifications(prev => [notification]); // Show only ONE notification at a time
+        setVisibleNotifications(prev => new Set([notification.id]));
 
-      // Auto-hide notification after 3 seconds
-      setTimeout(() => {
-        setVisibleNotifications(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(notification.id);
-          return newSet;
-        });
-        
-        // Remove from list after hide animation (300ms)
+        // Auto-hide notification after 8 seconds
         setTimeout(() => {
-          setNotifications(prev => prev.filter(n => n.id !== notification.id));
-        }, 300);
-      }, 3000);
+          setVisibleNotifications(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(notification.id);
+            return newSet;
+          });
+          
+          // Remove from list after hide animation (300ms)
+          setTimeout(() => {
+            setNotifications(prev => prev.filter(n => n.id !== notification.id));
+          }, 300);
+        }, 8000);
+        
+        // Set next notification time to 10 seconds from now
+        setNextNotificationTime(now + 10000);
+      }
     };
 
-    // Initial burst of notifications
-    setTimeout(() => generateRandomNotification(), 1000);
-    setTimeout(() => generateRandomNotification(), 2500);
-    setTimeout(() => generateRandomNotification(), 4000);
+    // Start showing notifications after 3 seconds
+    setTimeout(() => {
+      generateRandomNotification();
+    }, 3000);
 
-    // Regular interval for new notifications
+    // Check every second if it's time for next notification
     const interval = setInterval(() => {
       generateRandomNotification();
-    }, Math.random() * 5000 + 2000); // Random interval between 2-7 seconds
+    }, 1000);
 
     return () => clearInterval(interval);
-  }, [isActive]);
+  }, [isActive, nextNotificationTime]);
 
   const getNotificationIcon = (type: LiveNotification['type']) => {
     switch (type) {
@@ -227,7 +236,7 @@ export function LiveNotificationSystem() {
   };
 
   return (
-    <div className="fixed top-16 sm:top-20 right-2 sm:right-4 z-40 space-y-1 sm:space-y-2 pointer-events-none max-w-48 sm:max-w-xs">
+    <div className="fixed top-16 sm:top-20 right-2 sm:right-4 z-[35] space-y-1 sm:space-y-2 pointer-events-none max-w-48 sm:max-w-xs">
       <AnimatePresence>
         {notifications.map((notification) => {
           const Icon = getNotificationIcon(notification.type);

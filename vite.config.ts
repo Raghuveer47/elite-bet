@@ -7,4 +7,21 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  build: {
+    // Ensure proper asset paths
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+        },
+      },
+    },
+  },
+  // Ensure proper handling of client-side routing
+  preview: {
+    port: 5173,
+    host: true,
+  },
 });
