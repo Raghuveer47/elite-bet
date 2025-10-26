@@ -32,14 +32,14 @@ import { PromotionManagement } from './pages/admin/PromotionManagement';
 import { SupportManagement } from './pages/admin/SupportManagement';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { NotFoundPage } from './pages/NotFoundPage';
-import { LiveNotificationSystem } from './components/notifications/LiveNotificationSystem';
+// import { LiveNotificationSystem } from './components/notifications/LiveNotificationSystem';
 import { ActivityFeed } from './components/notifications/ActivityFeed';
-import { FloatingWinners } from './components/notifications/FloatingWinners';
+// import { FloatingWinners } from './components/notifications/FloatingWinners';
 import { JackpotTicker } from './components/notifications/JackpotTicker';
 
-import { useRealisticNotifications } from './hooks/useRealisticNotifications';
+// import { useRealisticNotifications } from './hooks/useRealisticNotifications';
 function AppContent() {
-  useRealisticNotifications(); // Enable notifications
+  // useRealisticNotifications(); // Disabled - removed right-side notifications
 
   return (
     <Routes>
@@ -78,9 +78,7 @@ function AppContent() {
           <div className="min-h-screen bg-slate-900">
             <Header />
             <div className="fixed inset-0 pointer-events-none z-20">
-              <LiveNotificationSystem />
               <ActivityFeed />
-              <FloatingWinners />
               <JackpotTicker />
             </div>
             <DashboardPage />
@@ -91,13 +89,10 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            {/* Notifications disabled */}
-            {/* <div className="fixed inset-0 pointer-events-none z-20">
-              <LiveNotificationSystem />
+            <div className="fixed inset-0 pointer-events-none z-20">
               <ActivityFeed />
-              <FloatingWinners />
               <JackpotTicker />
-            </div> */}
+            </div>
             <SportsPage />
           </div>
         </ProtectedRoute>
@@ -107,9 +102,7 @@ function AppContent() {
           <div className="min-h-screen bg-slate-900">
             <Header />
             <div className="fixed inset-0 pointer-events-none z-20">
-              <LiveNotificationSystem />
               <ActivityFeed />
-              <FloatingWinners />
               <JackpotTicker />
             </div>
             <CasinoPage />
@@ -121,9 +114,7 @@ function AppContent() {
           <div className="min-h-screen bg-slate-900">
             <Header />
             <div className="fixed inset-0 pointer-events-none z-20">
-              <LiveNotificationSystem />
               <ActivityFeed />
-              <FloatingWinners />
               <JackpotTicker />
             </div>
             <WalletPage />
@@ -135,9 +126,7 @@ function AppContent() {
           <div className="min-h-screen bg-slate-900">
             <Header />
             <div className="fixed inset-0 pointer-events-none z-20">
-              <LiveNotificationSystem />
               <ActivityFeed />
-              <FloatingWinners />
               <JackpotTicker />
             </div>
             <AccountPage />
@@ -149,9 +138,7 @@ function AppContent() {
           <div className="min-h-screen bg-slate-900">
             <Header />
             <div className="fixed inset-0 pointer-events-none z-20">
-              <LiveNotificationSystem />
               <ActivityFeed />
-              <FloatingWinners />
               <JackpotTicker />
             </div>
             <PromotionsPage />
@@ -163,9 +150,7 @@ function AppContent() {
           <div className="min-h-screen bg-slate-900">
             <Header />
             <div className="fixed inset-0 pointer-events-none z-20">
-              <LiveNotificationSystem />
               <ActivityFeed />
-              <FloatingWinners />
               <JackpotTicker />
             </div>
             <SupportPage />
@@ -176,13 +161,10 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            {/* Notifications disabled */}
-            {/* <div className="fixed inset-0 pointer-events-none z-20">
-              <LiveNotificationSystem />
+            <div className="fixed inset-0 pointer-events-none z-20">
               <ActivityFeed />
-              <FloatingWinners />
               <JackpotTicker />
-            </div> */}
+            </div>
             <SportsPage />
           </div>
         </ProtectedRoute>

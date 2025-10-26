@@ -151,13 +151,33 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true);
       console.log('WalletContext: Loading data for user:', user.id);
 
-      // Load user transactions
+      // Load transactions from localStorage first (for persistence)
+      const localStorageKey = `demo_user_transactions_${user.id}`;
+      const savedTransactions = localStorage.getItem(localStorageKey);
+      let allTransactions: Transaction[] = [];
+      
+      if (savedTransactions) {
+        try {
+          const parsed = JSON.parse(savedTransactions);
+          allTransactions = parsed.map((tx: any) => ({
+            ...tx,
+            createdAt: new Date(tx.createdAt),
+            updatedAt: new Date(tx.updatedAt),
+            completedAt: tx.completedAt ? new Date(tx.completedAt) : undefined
+          }));
+          console.log('WalletContext: Loaded', allTransactions.length, 'transactions from localStorage');
+        } catch (error) {
+          console.error('WalletContext: Error parsing saved transactions:', error);
+        }
+      }
+      
+      // Also try to fetch from Supabase
       console.log('WalletContext: Fetching transactions for user:', user.id);
       const transactionsResult = await SupabaseAuthService.getUserTransactions(user.id);
       console.log('WalletContext: Transactions result:', transactionsResult);
       
       if (transactionsResult.success && transactionsResult.transactions) {
-        console.log('WalletContext: Found', transactionsResult.transactions.length, 'transactions');
+        console.log('WalletContext: Found', transactionsResult.transactions.length, 'transactions from Supabase');
         const convertedTransactions: Transaction[] = transactionsResult.transactions.map(tx => ({
           id: tx.id,
           userId: tx.user_id,
@@ -174,39 +194,56 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           updatedAt: new Date(tx.updated_at),
           metadata: tx.metadata
         }));
-        setTransactions(convertedTransactions);
-
-        // Extract pending payments
-        const pendingPayments: PendingPayment[] = convertedTransactions
-          .filter(tx => (tx.type === 'deposit' || tx.type === 'withdrawal') && tx.status === 'pending')
-          .map(tx => ({
-            id: tx.id,
-            userId: tx.userId,
-            type: tx.type as 'deposit' | 'withdrawal',
-            amount: tx.amount,
-            currency: tx.currency,
-            method: tx.method,
-            transactionId: tx.metadata?.transactionId || '',
-            paymentProofUrl: tx.metadata?.paymentProof || '',
-            bankDetails: tx.metadata?.bankDetails,
-            status: 'pending' as const,
-            submittedAt: tx.createdAt,
-            reviewedAt: undefined,
-            reference: tx.reference,
-            description: tx.description,
-            metadata: tx.metadata
-          }));
-        setPendingPayments(pendingPayments);
-        console.log('WalletContext: Transactions loaded successfully');
-      } else {
-        console.log('WalletContext: No transactions found or failed to load:', transactionsResult.message);
-        setTransactions([]);
-        setPendingPayments([]);
+        
+        // Merge localStorage and Supabase transactions
+        const mergedTransactions = [...allTransactions, ...convertedTransactions];
+        const uniqueTransactions = mergedTransactions.filter((tx, index, self) => 
+          index === self.findIndex(t => t.id === tx.id)
+        );
+        allTransactions = uniqueTransactions;
       }
+      
+      setTransactions(allTransactions);
 
-      // Initialize accounts with user's current balance (default $100 for new users, $1000 for demo)
-      const userBalance = user.email === 'demo@spinzos.com' ? 1000 : (user.balance || 100);
-      console.log('WalletContext: Initializing accounts - user email:', user.email, 'user balance:', user.balance, 'final balance:', userBalance);
+      // Extract pending payments from all transactions
+      const pendingPayments: PendingPayment[] = allTransactions
+        .filter(tx => (tx.type === 'deposit' || tx.type === 'withdrawal') && tx.status === 'pending')
+        .map(tx => ({
+          id: tx.id,
+          userId: tx.userId,
+          type: tx.type as 'deposit' | 'withdrawal',
+          amount: tx.amount,
+          currency: tx.currency,
+          method: tx.method,
+          transactionId: tx.metadata?.transactionId || '',
+          paymentProofUrl: tx.metadata?.paymentProof || '',
+          bankDetails: tx.metadata?.bankDetails,
+          status: 'pending' as const,
+          submittedAt: tx.createdAt,
+          reviewedAt: undefined,
+          reference: tx.reference,
+          description: tx.description,
+          metadata: tx.metadata
+        }));
+      setPendingPayments(pendingPayments);
+      console.log('WalletContext: Transactions loaded successfully. Total:', allTransactions.length);
+
+      // Initialize accounts with user's current balance
+      // For demo users, load from localStorage first, then use user.balance
+      let userBalance = user.balance;
+      if (user.email === 'demo@spinzos.com') {
+        const savedBalance = localStorage.getItem('demo_user_balance');
+        if (savedBalance) {
+          userBalance = parseFloat(savedBalance);
+          console.log('WalletContext: Using saved demo balance from localStorage:', userBalance);
+        } else {
+          userBalance = user.balance || 1000;
+        }
+      } else {
+        userBalance = user.balance || 100;
+      }
+      
+      console.log('WalletContext: Initializing accounts - user email:', user.email, 'final balance:', userBalance);
       const userAccounts: WalletAccount[] = [
         {
           id: 'main',
@@ -221,7 +258,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         }
       ];
       setAccounts(userAccounts);
-      console.log('WalletContext: Accounts set:', userAccounts);
+      console.log('WalletContext: Accounts set with balance:', userBalance);
 
       console.log('WalletContext: Data loaded successfully');
     } catch (error) {
@@ -248,6 +285,18 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }
   }, [user?.id]);
+
+  // Sync account balance with user balance whenever it changes
+  useEffect(() => {
+    if (user && accounts.length > 0) {
+      console.log('WalletContext: Syncing account balance with user balance:', user.balance);
+      setAccounts(prev => prev.map(acc => 
+        acc.accountType === 'main' 
+          ? { ...acc, balance: user.balance, updatedAt: new Date() }
+          : acc
+      ));
+    }
+  }, [user?.balance, accounts.length]);
 
   // Safety timeout to prevent stuck loading state
   useEffect(() => {
@@ -687,15 +736,23 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
+      // Update balance immediately for better UX, even if Supabase fails
+      const account = accounts.find(acc => acc.currency === (user.currency || 'USD'));
+      const currentBalance = account?.balance || (user.email === 'demo@spinzos.com' ? 1000 : 100);
+      const newBalance = Math.max(0, currentBalance - amount);
+      
+      // Update balance immediately
+      await updateBalance(newBalance);
+      setAccounts(prev => prev.map(acc => 
+        acc.currency === user.currency 
+          ? { ...acc, balance: newBalance }
+          : acc
+      ));
+
+      // Try to create transaction in Supabase (non-blocking)
       const result = await SupabaseAuthService.createTransaction(transactionData);
       if (result.success && result.transaction) {
-        // Update user balance using account balance
-        const account = accounts.find(acc => acc.currency === (user.currency || 'USD'));
-        const currentBalance = account?.balance || (user.email === 'demo@spinzos.com' ? 1000 : 100);
-        const newBalance = currentBalance - amount;
-        await updateBalance(newBalance);
-
-        // Update local state
+        // Update local state with transaction
         const transaction: Transaction = {
           id: result.transaction.id,
           userId: result.transaction.user_id,
@@ -713,12 +770,34 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           metadata: result.transaction.metadata
         };
 
-        setTransactions(prev => [transaction, ...prev]);
-        setAccounts(prev => prev.map(acc => 
-          acc.currency === user.currency 
-            ? { ...acc, balance: acc.balance - amount }
-            : acc
-        ));
+        setTransactions(prev => {
+          const updated = [transaction, ...prev];
+          saveTransactionsToLocalStorage(updated);
+          return updated;
+        });
+      } else {
+        // If Supabase fails, create local transaction
+        console.log('WalletContext: Supabase insert failed, creating local transaction');
+        const localTransaction: Transaction = {
+          id: transactionData.reference,
+          userId: user.id,
+          type: 'bet',
+          amount: transactionData.amount,
+          currency: transactionData.currency || 'USD',
+          status: 'completed',
+          fee: 0,
+          method: 'game_bet',
+          description: transactionData.description,
+          reference: transactionData.reference,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          metadata: { ...transactionData.metadata, localFallback: true }
+        };
+        setTransactions(prev => {
+          const updated = [localTransaction, ...prev];
+          saveTransactionsToLocalStorage(updated);
+          return updated;
+        });
       }
     } catch (error) {
       console.error('WalletContext: Process bet error:', error);
@@ -766,15 +845,23 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
+      // Update balance immediately for better UX, even if Supabase fails
+      const account = accounts.find(acc => acc.currency === (user.currency || 'USD'));
+      const currentBalance = account?.balance || (user.email === 'demo@spinzos.com' ? 1000 : 100);
+      const newBalance = currentBalance + amount;
+      
+      // Update balance immediately
+      await updateBalance(newBalance);
+      setAccounts(prev => prev.map(acc => 
+        acc.currency === user.currency 
+          ? { ...acc, balance: newBalance }
+          : acc
+      ));
+
+      // Try to create transaction in Supabase (non-blocking)
       const result = await SupabaseAuthService.createTransaction(transactionData);
       if (result.success && result.transaction) {
-        // Update user balance using account balance
-        const account = accounts.find(acc => acc.currency === (user.currency || 'USD'));
-        const currentBalance = account?.balance || (user.email === 'demo@spinzos.com' ? 1000 : 100);
-        const newBalance = currentBalance + amount;
-        await updateBalance(newBalance);
-
-        // Update local state
+        // Update local state with transaction
         const transaction: Transaction = {
           id: result.transaction.id,
           userId: result.transaction.user_id,
@@ -792,17 +879,52 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           metadata: result.transaction.metadata
         };
 
-        setTransactions(prev => [transaction, ...prev]);
-        setAccounts(prev => prev.map(acc => 
-          acc.currency === user.currency 
-            ? { ...acc, balance: acc.balance + amount }
-            : acc
-        ));
-
+        setTransactions(prev => {
+          const updated = [transaction, ...prev];
+          saveTransactionsToLocalStorage(updated);
+          return updated;
+        });
         toast.success(`Congratulations! You won ${amount} ${user.currency}!`);
+      } else {
+        // If Supabase fails, create local transaction
+        console.log('WalletContext: Supabase insert failed, creating local transaction for win');
+        const localTransaction: Transaction = {
+          id: transactionData.reference,
+          userId: user.id,
+          type: 'win',
+          amount: transactionData.amount,
+          currency: transactionData.currency || 'USD',
+          status: 'completed',
+          fee: 0,
+          method: 'game_win',
+          description: transactionData.description,
+          reference: transactionData.reference,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          metadata: { ...transactionData.metadata, localFallback: true }
+        };
+        setTransactions(prev => {
+          const updated = [localTransaction, ...prev];
+          saveTransactionsToLocalStorage(updated);
+          return updated;
+        });
+        toast.success(`Congratulations! You won ${amount} ${user.currency}! (Stored locally - database unavailable)`);
       }
     } catch (error) {
       console.error('WalletContext: Process win error:', error);
+    }
+  };
+
+  // Save transactions to localStorage
+  const saveTransactionsToLocalStorage = (txs: Transaction[]) => {
+    if (user) {
+      const localStorageKey = `demo_user_transactions_${user.id}`;
+      try {
+        localStorage.setItem(localStorageKey, JSON.stringify(txs));
+        console.log('WalletContext: Saved', txs.length, 'transactions to localStorage');
+      } catch (error) {
+        console.error('WalletContext: Failed to save transactions to localStorage:', error);
+      }
     }
   };
 
@@ -816,14 +938,31 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       fee: transaction.fee || 0,
       method: transaction.method || 'unknown'
     };
-    setTransactions(prev => [newTransaction, ...prev]);
+    setTransactions(prev => {
+      const updated = [newTransaction, ...prev];
+      saveTransactionsToLocalStorage(updated);
+      return updated;
+    });
   };
 
   const getBalance = (currency?: string): number => {
+    // First try to get from accounts
     const account = accounts.find(acc => acc.currency === (currency || user?.currency || 'USD'));
-    const balance = account?.balance || (user?.email === 'demo@spinzos.com' ? 1000 : 100);
-    console.log('WalletContext: getBalance called - currency:', currency, 'account balance:', account?.balance, 'final balance:', balance);
-    return balance;
+    if (account?.balance !== undefined && account?.balance !== null) {
+      console.log('WalletContext: getBalance from account - balance:', account.balance);
+      return account.balance;
+    }
+    
+    // Fallback to user.balance if available
+    if (user?.balance !== undefined && user?.balance !== null) {
+      console.log('WalletContext: getBalance from user - balance:', user.balance);
+      return user.balance;
+    }
+    
+    // Default fallback
+    const defaultBalance = user?.email === 'demo@spinzos.com' ? 1000 : 100;
+    console.log('WalletContext: getBalance default - balance:', defaultBalance);
+    return defaultBalance;
   };
 
   const getTransactions = (limit?: number): Transaction[] => {
@@ -869,10 +1008,23 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getAvailableBalance = (): number => {
+    // First try to get from accounts
     const account = accounts.find(acc => acc.currency === (user?.currency || 'USD'));
-    const balance = account?.balance || (user?.email === 'demo@spinzos.com' ? 1000 : 100);
-    console.log('WalletContext: getAvailableBalance called - account balance:', account?.balance, 'final balance:', balance, 'user email:', user?.email);
-    return balance;
+    if (account?.balance !== undefined && account?.balance !== null) {
+      console.log('WalletContext: getAvailableBalance from account - balance:', account.balance);
+      return account.balance;
+    }
+    
+    // Fallback to user.balance if available
+    if (user?.balance !== undefined && user?.balance !== null) {
+      console.log('WalletContext: getAvailableBalance from user - balance:', user.balance);
+      return user.balance;
+    }
+    
+    // Default fallback
+    const defaultBalance = user?.email === 'demo@spinzos.com' ? 1000 : 100;
+    console.log('WalletContext: getAvailableBalance default - balance:', defaultBalance);
+    return defaultBalance;
   };
 
   return (

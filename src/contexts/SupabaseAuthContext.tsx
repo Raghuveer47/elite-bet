@@ -64,12 +64,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const demoSession = JSON.parse(demoSessionData);
             if (demoSession.user && demoSession.user.email === 'demo@spinzos.com') {
               console.log('AuthContext: Demo session found, restoring demo user');
+              
+              // Load saved balance from localStorage
+              const savedBalance = localStorage.getItem('demo_user_balance');
+              const balanceToUse = savedBalance ? parseFloat(savedBalance) : (demoSession.user.balance || 1000);
+              
+              console.log('AuthContext: Restoring demo user with balance:', balanceToUse);
+              
               const demoUser: User = {
                 id: demoSession.user.id,
                 email: demoSession.user.email,
                 firstName: demoSession.user.firstName,
                 lastName: demoSession.user.lastName,
-                balance: demoSession.user.balance || 1000,
+                balance: balanceToUse,
                 currency: demoSession.user.currency || 'USD',
                 isVerified: demoSession.user.isVerified || true,
                 createdAt: new Date(demoSession.user.createdAt),
@@ -79,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser(demoUser);
               setIsAuthenticated(true);
               setIsLoading(false);
-              console.log('AuthContext: Demo user restored from session');
+              console.log('AuthContext: Demo user restored from session with balance:', balanceToUse);
               return;
             }
           } catch (error) {
@@ -279,12 +286,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (email === 'demo@spinzos.com' && password === 'Demo123!') {
         console.log('AuthContext: Demo account login detected');
         
+        // Load balance from localStorage if it exists
+        const savedBalance = localStorage.getItem('demo_user_balance');
+        const savedBalanceValue = savedBalance ? parseFloat(savedBalance) : 1000;
+        
+        console.log('AuthContext: Loading demo balance from localStorage:', savedBalanceValue);
+        
         const demoUser: User = {
           id: 'demo_user_123',
           email: 'demo@spinzos.com',
           firstName: 'Demo',
           lastName: 'User',
-          balance: 1000, // $1000 demo balance
+          balance: savedBalanceValue, // Use saved balance or default to $1000
           currency: 'USD',
           isVerified: true,
           createdAt: new Date(),
@@ -313,7 +326,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }));
         
-        console.log('AuthContext: Demo user logged in successfully');
+        console.log('AuthContext: Demo user logged in successfully with balance:', savedBalanceValue);
         return;
       }
       
@@ -413,10 +426,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('AuthContext: Logging out user');
       
+      // Show logout message first
+      toast.success('Logged out successfully');
+      
       // Clear React state immediately to prevent further operations
       setUser(null);
       setIsAuthenticated(false);
       setIsLoading(false);
+      
+      // Clear ALL localStorage data (complete cleanup)
+      localStorage.clear();
+      console.log('AuthContext: Cleared all localStorage');
+      
+      // Clear sessionStorage
+      sessionStorage.removeItem('elitebet_user_session');
       
       // Sign out from Supabase (this will handle session cleanup)
       const result = await SupabaseAuthService.signOut();
@@ -424,47 +447,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn('AuthContext: Supabase signOut failed, but continuing with local logout');
       }
       
-      // Only clear app-specific user data, let Supabase handle its own cleanup
-      localStorage.removeItem('elitebet_user_session');
-      
       console.log('AuthContext: User logout completed');
-      
       console.log('AuthContext: Logout successful, redirecting to login');
       
-      // Force redirect to login page
-      window.location.href = '/login';
+      // Small delay to show toast, then redirect
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 500);
       
-      toast.success('Logged out successfully');
     } catch (error: any) {
       console.error('AuthContext: Logout error:', error);
       
-      // Even if there's an error, clear local state but let Supabase handle session cleanup
-      localStorage.removeItem('elitebet_user_session');
+      // Even if there's an error, clear all local state
+      localStorage.clear();
+      sessionStorage.removeItem('elitebet_user_session');
       setUser(null);
       setIsAuthenticated(false);
       setIsLoading(false);
       
       console.log('AuthContext: Forced logout due to error, redirecting to login');
       
-      // Force redirect to login page
-      window.location.href = '/login';
-      
       toast.success('Logged out successfully');
+      
+      // Small delay to show toast, then redirect
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 500);
     }
   };
 
-  const updateBalance = async (amount: number) => {
+  const updateBalance = async (newBalance: number) => {
     if (!user) return;
     
     try {
-      console.log('AuthContext: Updating balance for user:', user.id, 'to:', amount);
+      const oldBalance = user.balance;
+      console.log('AuthContext: Updating balance for user:', user.id, 'from:', oldBalance, 'to:', newBalance);
       
-      // Handle demo account
+      // Handle demo account - no Supabase calls
       if (user.email === 'demo@spinzos.com') {
-        console.log('AuthContext: Updating demo account balance');
+        console.log('AuthContext: Updating demo account balance to:', newBalance);
+        
+        // Save balance to localStorage for persistence across refreshes
+        localStorage.setItem('demo_user_balance', newBalance.toString());
+        console.log('AuthContext: Saved demo balance to localStorage:', newBalance);
+        
         const updatedUser = {
           ...user,
-          balance: amount
+          balance: newBalance
         };
         
         setUser(updatedUser);
@@ -475,45 +504,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const session = JSON.parse(sessionData);
           session.user = {
             ...session.user,
-            balance: amount
+            balance: newBalance
           };
           localStorage.setItem('elitebet_user_session', JSON.stringify(session));
         }
         
-        console.log('AuthContext: Demo balance updated successfully');
+        console.log('AuthContext: Demo balance updated successfully to:', newBalance);
         return;
       }
       
-      const result = await SupabaseAuthService.updateUserBalance(user.id, amount);
+      // For real users, update in Supabase but don't wait for it
+      // We update locally immediately for better UX
+      const updatedUser = {
+        ...user,
+        balance: newBalance
+      };
       
-      if (result.success && result.user) {
-        const updatedUser: User = {
-          ...user,
-          balance: result.user.balance,
-          lastLogin: new Date(result.user.last_login)
+      setUser(updatedUser);
+      
+      // Update session immediately
+      const sessionData = localStorage.getItem('elitebet_user_session');
+      if (sessionData) {
+        const session = JSON.parse(sessionData);
+        session.user = {
+          ...session.user,
+          balance: newBalance
         };
-        
-        setUser(updatedUser);
-        
-        // Update session
-        const sessionData = localStorage.getItem('elitebet_user_session');
-        if (sessionData) {
-          const session = JSON.parse(sessionData);
-          session.user = {
-            ...session.user,
-            balance: result.user.balance,
-            lastLogin: result.user.last_login
-          };
-          localStorage.setItem('elitebet_user_session', JSON.stringify(session));
-        }
-        
-        console.log('AuthContext: Balance updated successfully');
-      } else {
-        throw new Error(result.message || 'Failed to update balance');
+        localStorage.setItem('elitebet_user_session', JSON.stringify(session));
+      }
+      
+      console.log('AuthContext: Balance updated locally to:', newBalance);
+      
+      // Try to update in Supabase in background (non-blocking)
+      try {
+        const change = newBalance - oldBalance;
+        await SupabaseAuthService.updateUserBalance(user.id, change);
+        console.log('AuthContext: Supabase balance update successful');
+      } catch (error) {
+        console.warn('AuthContext: Supabase update failed, but balance updated locally:', error);
       }
     } catch (error: any) {
       console.error('AuthContext: Update balance error:', error);
-      toast.error('Failed to update balance');
     }
   };
 

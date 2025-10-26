@@ -185,6 +185,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       
       // Clear session
       sessionStorage.removeItem('elitebet_admin_session');
+      localStorage.removeItem('elitebet_admin_session');
       
       setAdminUser(null);
       setUsers([]);
@@ -194,8 +195,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       
       toast.success('Admin logged out');
       console.log('AdminContext: Admin logout successful');
+      
+      // Redirect to admin login page
+      window.location.href = '/admin/login';
     } catch (error) {
       console.error('AdminContext: Logout error:', error);
+      // Still redirect even if there's an error
+      window.location.href = '/admin/login';
     }
   };
 

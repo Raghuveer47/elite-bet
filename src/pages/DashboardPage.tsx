@@ -15,7 +15,7 @@ import { BalanceDebugger } from '../components/BalanceDebugger';
 
 function DashboardContent() {
   const { user, isAuthenticated } = useAuth();
-  const { getTransactions, stats, getBalance, getAvailableBalance, refreshWallet } = useWallet();
+  const { getTransactions, stats, getBalance, getAvailableBalance, refreshWallet, accounts } = useWallet();
   const [selectedPeriod, setSelectedPeriod] = useState('today');
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
   const [realTimeMetrics, setRealTimeMetrics] = useState({
@@ -27,9 +27,26 @@ function DashboardContent() {
     totalSessions: 0
   });
 
+  // Force re-render when balance changes by including it in state
+  const [balanceKey, setBalanceKey] = useState(0);
+  
   const recentTransactions = getTransactions(10);
   const currentBalance = getBalance();
   const availableBalance = getAvailableBalance();
+
+  // Watch for balance changes and force re-render
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBalanceKey(prev => prev + 1);
+    }, 500); // Update every 500ms to show real-time balance
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Also re-render when user balance changes
+  useEffect(() => {
+    setBalanceKey(prev => prev + 1);
+  }, [user?.balance, accounts]);
 
   // Calculate real-time user metrics
   useEffect(() => {
