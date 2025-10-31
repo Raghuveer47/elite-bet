@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, TrendingUp, Users, DollarSign, Trophy, Target, Gift, Crown, Star } from 'lucide-react';
+import { Activity, TrendingUp, Users, DollarSign, Trophy, Target, Gift, Crown, Star, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency } from '../../lib/utils';
+import toast from 'react-hot-toast';
 
 interface ActivityItem {
   id: string;
@@ -27,6 +28,8 @@ const GAMES = [
 export function ActivityFeed() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [isVisible, setIsVisible] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [dismissedActivities, setDismissedActivities] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const generateActivity = (): ActivityItem => {
@@ -110,6 +113,44 @@ export function ActivityFeed() {
     }
   };
 
+  const [lastDismissedId, setLastDismissedId] = useState<string | null>(null);
+
+  const handleUndoDismiss = () => {
+    if (lastDismissedId) {
+      setDismissedActivities(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(lastDismissedId);
+        return newSet;
+      });
+      setLastDismissedId(null);
+      toast.success('Activity restored');
+    }
+  };
+
+  const handleDismissActivity = (activityId: string) => {
+    setDismissedActivities(prev => new Set([...prev, activityId]));
+    setLastDismissedId(activityId);
+    
+    // Show undo notification
+    toast(
+      (t) => (
+        <div className="flex items-center gap-3">
+          <span className="text-white">Activity dismissed</span>
+          <button
+            onClick={() => {
+              handleUndoDismiss();
+              toast.dismiss(t.id);
+            }}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+          >
+            Undo
+          </button>
+        </div>
+      ),
+      { duration: 4000, id: 'activity-dismissed' }
+    );
+  };
+
   const getActivityMessage = (activity: ActivityItem) => {
     switch (activity.type) {
       case 'win':
@@ -132,20 +173,32 @@ export function ActivityFeed() {
     }
   };
 
+  // Filter out dismissed activities
+  const visibleActivities = activities.filter(activity => !dismissedActivities.has(activity.id));
+
   if (!isVisible) return null;
 
   return (
     <div className="fixed bottom-4 left-2 sm:left-4 w-64 sm:w-72 max-h-48 sm:max-h-64 z-[25]">
-      {/* Header */}
-      <div className="bg-slate-800/95 backdrop-blur-sm rounded-t-lg p-2 sm:p-3 border border-slate-700 border-b-0">
+      {/* Header - Clickable to expand/collapse */}
+      <div 
+        className={`bg-slate-800/95 backdrop-blur-sm rounded-t-lg p-2 sm:p-3 border border-slate-700 ${!isCollapsed ? 'border-b-0' : 'rounded-b-lg'} cursor-pointer transition-all duration-200`}
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Activity className="w-3 h-3 sm:w-4 sm:h-4 text-green-400 animate-pulse" />
             <h3 className="font-semibold text-white text-xs sm:text-sm">Live Activity</h3>
             <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+            {isCollapsed && (
+              <span className="text-xs text-slate-400 ml-2">({visibleActivities.length} new)</span>
+            )}
           </div>
           <button
-            onClick={() => setIsVisible(false)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsVisible(false);
+            }}
             className="text-slate-400 hover:text-white transition-colors text-xs"
           >
             ✕
@@ -154,9 +207,10 @@ export function ActivityFeed() {
       </div>
 
       {/* Activity List */}
-      <div className="bg-slate-800/95 backdrop-blur-sm rounded-b-lg border border-slate-700 border-t-0 max-h-32 sm:max-h-48 overflow-y-auto">
+      {!isCollapsed && (
+        <div className="bg-slate-800/95 backdrop-blur-sm rounded-b-lg border border-slate-700 border-t-0 max-h-32 sm:max-h-48 overflow-y-auto">
         <AnimatePresence>
-          {activities.map((activity, index) => {
+          {visibleActivities.map((activity, index) => {
             const Icon = getActivityIcon(activity.type);
             const colorClass = getActivityColor(activity.type, activity.amount);
             
@@ -172,9 +226,10 @@ export function ActivityFeed() {
                   damping: 30,
                   delay: index * 0.1
                 }}
-                className={`p-2 sm:p-3 border-b border-slate-700 last:border-b-0 hover:bg-slate-700/50 transition-colors ${
+                className={`p-2 sm:p-3 border-b border-slate-700 last:border-b-0 hover:bg-slate-700/50 transition-colors cursor-pointer ${
                   activity.amount && activity.amount >= 5000 ? 'bg-gradient-to-r from-yellow-500/10 to-orange-500/10' : ''
                 }`}
+                onClick={() => handleDismissActivity(activity.id)}
               >
                 <div className="flex items-center space-x-2">
                   <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center border ${colorClass} ${
@@ -213,35 +268,36 @@ export function ActivityFeed() {
           })}
         </AnimatePresence>
       </div>
+      )}
 
       {/* Stats Footer */}
-      <div className="bg-slate-900/95 backdrop-blur-sm p-2 border border-slate-700 border-t-0">
+      {!isCollapsed && (
+        <div className="bg-slate-900/95 backdrop-blur-sm p-2 border border-slate-700 border-t-0">
         <div className="grid grid-cols-3 gap-2 text-center text-xs">
           <div>
             <TrendingUp className="w-3 h-3 text-green-400 mx-auto mb-1" />
             <p className="text-green-400 font-bold">
-              {activities.filter(a => a.type === 'win').length}
+              {visibleActivities.filter(a => a.type === 'win').length}
             </p>
             <p className="text-slate-400">Wins</p>
           </div>
           <div>
             <DollarSign className="w-3 h-3 text-blue-400 mx-auto mb-1" />
             <p className="text-blue-400 font-bold text-xs">
-              {formatCurrency(activities.filter(a => a.amount).reduce((sum, a) => sum + (a.amount || 0), 0))}
+              {formatCurrency(visibleActivities.filter(a => a.amount).reduce((sum, a) => sum + (a.amount || 0), 0))}
             </p>
             <p className="text-slate-400">Total</p>
           </div>
           <div>
             <Users className="w-3 h-3 text-purple-400 mx-auto mb-1" />
             <p className="text-purple-400 font-bold">
-              {new Set(activities.map(a => a.user)).size}
+              {new Set(visibleActivities.map(a => a.user)).size}
             </p>
             <p className="text-slate-400">Players</p>
           </div>
         </div>
       </div>
-
-      {/* Restore Button */}
+      )}
       {!isVisible && (
         <motion.button
           initial={{ scale: 0 }}

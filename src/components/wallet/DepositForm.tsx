@@ -1,23 +1,38 @@
-import { useState } from 'react';
-import { AlertCircle, CheckCircle, Clock, ArrowDownLeft, Building2, CreditCard, Smartphone, DollarSign, Eye } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { AlertCircle, CheckCircle, Clock, ArrowDownLeft, Building2, CreditCard, Smartphone, DollarSign, Eye, Upload } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { useWallet } from '../../contexts/SupabaseWalletContext';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
 import { formatCurrency, formatDate } from '../../lib/utils';
+import { CloudinaryService } from '../../services/cloudinaryService';
 
 export function DepositForm() {
-  const { submitManualDeposit, isLoading, error, transactions } = useWallet();
+  const { user } = useAuth();
+  const { submitManualDeposit, isLoading, error, transactions, getBalance } = useWallet();
   const [amount, setAmount] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [email, setEmail] = useState('');
   const [upiId, setUpiId] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [selectedMethod, setSelectedMethod] = useState<string>('union_bank_india');
-  const [showBankDetails, setShowBankDetails] = useState(false);
+  const [showBankDetails, setShowBankDetails] = useState(true); // Show by default
   const [success, setSuccess] = useState<string | null>(null);
   const [showPendingDeposits, setShowPendingDeposits] = useState(false);
+  const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-fill user data
+  useEffect(() => {
+    if (user) {
+      setCustomerName(`${user.firstName} ${user.lastName}`.trim());
+      setEmail(user.email || '');
+    }
+  }, [user]);
 
   console.log('DepositForm: isLoading =', isLoading, 'error =', error);
 
@@ -58,6 +73,40 @@ export function DepositForm() {
 
   const selectedPaymentMethod = paymentMethods.find(method => method.id === selectedMethod);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size should be less than 5MB');
+        return;
+      }
+
+      setPaymentScreenshot(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setScreenshotPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeScreenshot = () => {
+    setPaymentScreenshot(null);
+    setScreenshotPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleDepositSubmission = async () => {
     if (!amount || !customerName || !email || !transactionId) {
       toast.error('Please fill in all required fields');
@@ -69,6 +118,11 @@ export function DepositForm() {
       return;
     }
 
+    if (!paymentScreenshot) {
+      toast.error('Please upload a payment screenshot');
+      return;
+    }
+
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) {
       toast.error('Please enter a valid amount');
@@ -76,6 +130,18 @@ export function DepositForm() {
     }
 
     try {
+      setUploading(true);
+      
+      // Upload screenshot to Cloudinary
+      let screenshotUrl = '';
+      if (paymentScreenshot) {
+        toast.loading('Uploading payment screenshot...');
+        const uploadResult = await CloudinaryService.uploadImage(paymentScreenshot, 'elite-bet/payment-proofs');
+        screenshotUrl = uploadResult.url;
+        toast.dismiss();
+        toast.success('Screenshot uploaded successfully');
+      }
+
       const depositTransactionId = `DEPOSIT_${Date.now()}`;
       
       console.log('DepositForm: Deposit request submitted', {
@@ -85,21 +151,24 @@ export function DepositForm() {
         upiId: selectedMethod === 'phonepe' ? upiId : undefined,
         transactionId,
         depositTransactionId,
-        paymentMethod: selectedMethod
+        paymentMethod: selectedMethod,
+        screenshotUrl
       });
 
       await submitManualDeposit({
         amount: amountNum,
-        currency: 'USD',
+        currency: 'INR',
         method: selectedMethod,
         transactionId: depositTransactionId,
         customerName,
         phoneNumber: email, // Using email as contact
         bankTransactionId: transactionId,
+        base64Image: screenshotUrl, // Pass the Cloudinary URL
         metadata: {
           email,
           upiId: selectedMethod === 'phonepe' ? upiId : undefined,
-          bankDetails: selectedPaymentMethod?.bankDetails
+          bankDetails: selectedPaymentMethod?.bankDetails,
+          paymentProofUrl: screenshotUrl
         }
       });
 
@@ -110,6 +179,8 @@ export function DepositForm() {
       setUpiId('');
       setTransactionId('');
       setShowBankDetails(false);
+      setPaymentScreenshot(null);
+      setScreenshotPreview(null);
       
       // Reset form after 5 seconds
       setTimeout(() => {
@@ -119,6 +190,8 @@ export function DepositForm() {
     } catch (error: any) {
       console.error('DepositForm: Deposit submission error:', error);
       toast.error(error.message || 'Failed to submit deposit request');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -140,7 +213,7 @@ export function DepositForm() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-slate-700/50 rounded-lg p-4">
             <p className="text-slate-400 text-sm">Current Balance</p>
-            <p className="text-white text-xl font-semibold">$100.00</p>
+            <p className="text-white text-xl font-semibold">{formatCurrency(getBalance())}</p>
           </div>
           <div className="bg-slate-700/50 rounded-lg p-4">
             <p className="text-slate-400 text-sm">Active Bets</p>
@@ -170,6 +243,40 @@ export function DepositForm() {
 
       {/* Deposit Form */}
       <div className="p-6">
+        {/* Bank Details Display - MOVED ABOVE FORM */}
+        {selectedPaymentMethod && showBankDetails && (
+          <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+            <h4 className="text-blue-400 font-medium mb-3 flex items-center gap-2">
+              <Eye className="w-4 h-4" />
+              Payment Details (Make payment to these details)
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Bank:</span>
+                <span className="text-white font-medium">{selectedPaymentMethod.bankDetails.bankName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Account Name:</span>
+                <span className="text-white font-medium">{selectedPaymentMethod.bankDetails.accountName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Account Number:</span>
+                <span className="text-white font-medium font-mono">{selectedPaymentMethod.bankDetails.accountNumber}</span>
+              </div>
+              {selectedPaymentMethod.bankDetails.ifscCode !== 'N/A' && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">IFSC Code:</span>
+                  <span className="text-white font-medium font-mono">{selectedPaymentMethod.bankDetails.ifscCode}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-slate-400">Phone:</span>
+                <span className="text-white font-medium">{selectedPaymentMethod.bankDetails.phoneNumber}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={(e) => { e.preventDefault(); handleDepositSubmission(); }} className="space-y-6">
           {/* Deposit Amount */}
           <div>
@@ -193,7 +300,7 @@ export function DepositForm() {
             </div>
           </div>
 
-          {/* Customer Details */}
+          {/* Customer Details - DISABLED (Auto-filled from user) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -202,10 +309,8 @@ export function DepositForm() {
               <Input
                 type="text"
                 value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Enter your full name"
-                required
-                className="bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:border-blue-500 focus:ring-blue-500"
+                disabled
+                className="bg-slate-600 border-slate-500 text-slate-300 cursor-not-allowed"
               />
             </div>
             <div>
@@ -215,10 +320,8 @@ export function DepositForm() {
               <Input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email address"
-                required
-                className="bg-slate-700 border-slate-600 text-white placeholder-slate-400 focus:border-blue-500 focus:ring-blue-500"
+                disabled
+                className="bg-slate-600 border-slate-500 text-slate-300 cursor-not-allowed"
               />
             </div>
           </div>
@@ -300,50 +403,63 @@ export function DepositForm() {
             </div>
           </div>
 
-          {/* Bank Details Display */}
-          {selectedPaymentMethod && showBankDetails && (
-            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-              <h4 className="text-blue-400 font-medium mb-3 flex items-center gap-2">
-                <Eye className="w-4 h-4" />
-                Payment Details
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Bank:</span>
-                  <span className="text-white font-medium">{selectedPaymentMethod.bankDetails.bankName}</span>
+          {/* Screenshot Upload */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Payment Screenshot *
+            </label>
+            <div className="space-y-3">
+              {!paymentScreenshot ? (
+                <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="payment-screenshot"
+                  />
+                  <label
+                    htmlFor="payment-screenshot"
+                    className="cursor-pointer flex flex-col items-center gap-3"
+                  >
+                    <div className="p-3 bg-blue-500/10 rounded-lg">
+                      <Upload className="w-8 h-8 text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">Upload Payment Screenshot</p>
+                      <p className="text-slate-400 text-sm mt-1">PNG, JPG or JPEG (Max 5MB)</p>
+                    </div>
+                  </label>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Account Name:</span>
-                  <span className="text-white font-medium">{selectedPaymentMethod.bankDetails.accountName}</span>
+              ) : (
+                <div className="relative border border-slate-600 rounded-lg overflow-hidden">
+                  <img
+                    src={screenshotPreview || ''}
+                    alt="Payment Screenshot"
+                    className="w-full h-64 object-contain bg-slate-900"
+                  />
+                  <button
+                    onClick={removeScreenshot}
+                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                  >
+                    Remove
+                  </button>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Account Number:</span>
-                  <span className="text-white font-medium font-mono">{selectedPaymentMethod.bankDetails.accountNumber}</span>
-                </div>
-                {selectedPaymentMethod.bankDetails.ifscCode !== 'N/A' && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">IFSC Code:</span>
-                    <span className="text-white font-medium font-mono">{selectedPaymentMethod.bankDetails.ifscCode}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Phone:</span>
-                  <span className="text-white font-medium">{selectedPaymentMethod.bankDetails.phoneNumber}</span>
-                </div>
-              </div>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Submit Button */}
           <Button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || uploading}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
           >
-            {isLoading ? (
+            {(isLoading || uploading) ? (
               <div className="flex items-center justify-center gap-2">
                 <LoadingSpinner size="sm" />
-                <span>Submitting Request...</span>
+                <span>{uploading ? 'Uploading Screenshot...' : 'Submitting Request...'}</span>
               </div>
             ) : (
               'Submit Deposit Request'

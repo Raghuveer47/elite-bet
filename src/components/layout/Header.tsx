@@ -70,8 +70,8 @@ export function Header() {
                 <Link to="/wallet">
                   <Button variant="outline" size="sm" className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm">
                     <Wallet className="w-4 h-4" />
-                    <span className="hidden sm:inline">{(user.balance || 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
-                    <span className="sm:hidden">${Math.floor(user.balance || 0)}</span>
+                    <span className="hidden sm:inline">₹{(user.balance || 0).toLocaleString('en-IN')}</span>
+                    <span className="sm:hidden">₹{Math.floor(user.balance || 0)}</span>
                   </Button>
                 </Link>
                 <Link to="/account">

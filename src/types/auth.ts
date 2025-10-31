@@ -8,6 +8,8 @@ export interface User {
   isVerified: boolean;
   createdAt: Date;
   lastLogin: Date;
+  country?: string;
+  referralCode?: string | null;
 }
 
 export interface AuthSession {

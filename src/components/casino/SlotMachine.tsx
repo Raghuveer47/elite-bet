@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Play, RotateCcw, Coins, Volume2, VolumeX, Settings, Trophy, Zap, Star, Crown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Play, RotateCcw, Coins, Volume2, VolumeX, Trophy, Zap, Star, Crown } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useAuth } from '../../contexts/SupabaseAuthContext';
 import { useWallet } from '../../contexts/SupabaseWalletContext';
 import toast from 'react-hot-toast';
 import { useCasinoGame } from '../../hooks/useCasinoGame';
+import { useCasinoSocket } from '../../contexts/SocketContext';
 import { formatCurrency } from '../../lib/utils';
 import { eventBus } from '../../utils/eventBus';
 import { ResponsibleGamingService } from '../../services/responsibleGamingService';
@@ -15,44 +16,41 @@ interface SlotMachineProps {
   gameName: string;
 }
 
+// Persist unsynced game result (used when backend bet/win calls time out)
+const getPendingKey = (gameId: string) => `elitebet_pending_slot_result_${gameId}`;
+
 const SYMBOLS = [
-  { symbol: '🍒', name: 'Cherry', value: 2, rarity: 0.25, color: 'text-red-400' },
-  { symbol: '🍋', name: 'Lemon', value: 3, rarity: 0.22, color: 'text-yellow-400' },
-  { symbol: '🍊', name: 'Orange', value: 4, rarity: 0.20, color: 'text-orange-400' },
-  { symbol: '🍇', name: 'Grape', value: 6, rarity: 0.15, color: 'text-purple-400' },
-  { symbol: '⭐', name: 'Star', value: 10, rarity: 0.10, color: 'text-blue-400' },
-  { symbol: '💎', name: 'Diamond', value: 25, rarity: 0.05, color: 'text-cyan-400' },
-  { symbol: '7️⃣', name: 'Lucky Seven', value: 50, rarity: 0.02, color: 'text-green-400' },
-  { symbol: '👑', name: 'Crown', value: 100, rarity: 0.01, color: 'text-yellow-300' }
+  { symbol: '🍒', name: 'Cherry', value: 1.5, rarity: 0.30, color: 'text-red-400' },
+  { symbol: '🍋', name: 'Lemon', value: 2, rarity: 0.24, color: 'text-yellow-400' },
+  { symbol: '🍊', name: 'Orange', value: 3, rarity: 0.20, color: 'text-orange-400' },
+  { symbol: '🍇', name: 'Grape', value: 5, rarity: 0.14, color: 'text-purple-400' },
+  { symbol: '⭐', name: 'Star', value: 8, rarity: 0.08, color: 'text-blue-400' },
+  { symbol: '💎', name: 'Diamond', value: 18, rarity: 0.03, color: 'text-cyan-400' },
+  { symbol: '7️⃣', name: 'Lucky Seven', value: 35, rarity: 0.009, color: 'text-green-400' },
+  { symbol: '👑', name: 'Crown', value: 70, rarity: 0.001, color: 'text-yellow-300' }
 ];
 
+const REEL_COUNT = 3;
+const ROWS = 3;
 const PAYLINES = [
-  [1, 1, 1, 1, 1], // Middle row
-  [0, 0, 0, 0, 0], // Top row
-  [2, 2, 2, 2, 2], // Bottom row
-  [0, 1, 2, 1, 0], // V shape
-  [2, 1, 0, 1, 2], // Inverted V
-  [0, 0, 1, 2, 2], // Diagonal down
-  [2, 2, 1, 0, 0], // Diagonal up
-  [1, 0, 1, 2, 1], // W shape
-  [1, 2, 1, 0, 1]  // M shape
+  [1, 1, 1], // Middle row
+  [0, 0, 0], // Top row
+  [2, 2, 2], // Bottom row
+  [0, 1, 2], // Diagonal down
+  [2, 1, 0]  // Diagonal up
 ];
 
 export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
   const { user } = useAuth();
-  const { processBet, processWin } = useWallet();
-  const { session, isPlaying, setIsPlaying, placeBet, addWinnings, resetSession } = useCasinoGame(gameId);
+  const { getAvailableBalance } = useWallet();
+  const { session, isPlaying, setIsPlaying, placeBet, addWinnings, markLoss, resetSession } = useCasinoGame(gameId);
+  const { socket, isConnected } = useCasinoSocket();
   const [betAmount, setBetAmount] = useState(10);
-  const [activePaylines, setActivePaylines] = useState(9);
-  const [reels, setReels] = useState<string[][]>([
-    ['🍒', '🍋', '🍊'],
-    ['🍇', '⭐', '💎'],
-    ['7️⃣', '👑', '🍒'],
-    ['🍋', '🍊', '🍇'],
-    ['⭐', '💎', '7️⃣']
-  ]);
+  const [activePaylines, setActivePaylines] = useState(5);
+  const [reels, setReels] = useState<string[][]>(Array(REEL_COUNT).fill(null).map(() => ['🍒', '🍋', '🍊']));
   const [winLines, setWinLines] = useState<number[]>([]);
   const [lastWin, setLastWin] = useState(0);
+  const [lastLoss, setLastLoss] = useState(0);
   const [isSpinning, setIsSpinning] = useState(false);
   const [spinSpeed, setSpinSpeed] = useState(100);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -62,9 +60,10 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
   const [jackpotAmount, setJackpotAmount] = useState(2500000);
   const [multiplier, setMultiplier] = useState(1);
   const [showPaytable, setShowPaytable] = useState(false);
-  const [reelAnimations, setReelAnimations] = useState<boolean[]>([false, false, false, false, false]);
+  const [reelAnimations, setReelAnimations] = useState<boolean[]>(Array(REEL_COUNT).fill(false));
   const [winAnimation, setWinAnimation] = useState(false);
   const [megaWin, setMegaWin] = useState(false);
+  const [walletUi, setWalletUi] = useState<number>(getAvailableBalance());
 
   // Progressive jackpot updates
   useEffect(() => {
@@ -73,6 +72,80 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
     }, 1500);
     return () => clearInterval(interval);
   }, []);
+
+  // Reset stuck state on mount (fixes refresh issues)
+  useEffect(() => {
+    console.log('[SLOTS] Component mounted - ensuring clean state');
+    // Reset immediately
+    setIsSpinning(false);
+    setIsPlaying(false);
+    setWinAnimation(false);
+    // Restore last win from sessionStorage
+    try {
+      const saved = sessionStorage.getItem(`${gameId}_lastWin`);
+      if (saved != null) setLastWin(Number(saved) || 0);
+    } catch {}
+    // Double-check after React has processed (aggressive fix)
+    const timeout = setTimeout(() => {
+      console.log('[SLOTS] Mount timeout - force clearing any stuck state');
+      setIsSpinning(false);
+      setIsPlaying(false);
+      setWinAnimation(false);
+    }, 200);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // Keep local wallet mirror roughly in sync with provider balance
+  useEffect(() => {
+    setWalletUi(getAvailableBalance());
+  }, [session.balance]);
+
+  // Try to flush any pending (unsynced) result stored from a previous spin
+  useEffect(() => {
+    const key = getPendingKey(gameId);
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return;
+
+    try {
+      const pending = JSON.parse(raw) as { winAmount?: number; lossAmount?: number };
+      if (pending && (pending.winAmount || pending.lossAmount)) {
+        console.log('[SLOTS] Flushing pending result from previous spin', pending);
+        (async () => {
+          try {
+            if (pending.winAmount && pending.winAmount > 0) {
+              await addWinnings(pending.winAmount);
+            } else if (pending.lossAmount && pending.lossAmount > 0) {
+              await markLoss();
+            }
+          } finally {
+            sessionStorage.removeItem(key);
+          }
+        })();
+      }
+    } catch {}
+  }, [gameId, addWinnings, markLoss]);
+
+  // Auto-reset if stuck spinning for more than 15 seconds
+  useEffect(() => {
+    if (isSpinning) {
+      const stuckTimer = setTimeout(() => {
+        console.warn('[SLOTS] Auto-reset: Stuck spinning for 15+ seconds');
+        forceReset();
+      }, 15000);
+      return () => clearTimeout(stuckTimer);
+    }
+  }, [isSpinning]);
+
+  // Manual reset function for stuck states
+  const forceReset = () => {
+    console.log('[SLOTS] Manual force reset called');
+    setIsSpinning(false);
+    setIsPlaying(false);
+    setWinAnimation(false);
+    setWinLines([]);
+    setMultiplier(1);
+    toast.success('Game state reset');
+  };
 
   const generateWeightedSymbol = (): string => {
     const random = Math.random();
@@ -109,8 +182,9 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
         const symbolData = SYMBOLS.find(s => s.symbol === firstSymbol);
         if (symbolData) {
           winningLines.push(lineIndex);
-          const lineMultiplier = symbolData.value * Math.pow(1.8, consecutiveCount - 3);
-          const linePayout = (betAmount / activePaylines) * lineMultiplier;
+          const lineMultiplier = symbolData.value * Math.pow(1.6, consecutiveCount - 3);
+          // PAY PER LINE: betAmount is already the per-line stake
+          const linePayout = betAmount * lineMultiplier;
           totalPayout += linePayout;
           maxMultiplier = Math.max(maxMultiplier, lineMultiplier);
         }
@@ -134,108 +208,199 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
     return { winLines: winningLines, totalPayout, maxMultiplier };
   };
 
-  const animateReels = async (): Promise<string[][]> => {
+  const animateReels = (): Promise<string[][]> => {
     return new Promise((resolve) => {
-      let spinCount = 0;
-      const maxSpins = 25 + Math.random() * 15;
-      
-      setReelAnimations([true, true, true, true, true]);
-      
-      const spinInterval = setInterval(() => {
-        setReels(prev => prev.map(reel => 
-          reel.map(() => generateWeightedSymbol())
-        ));
-        
-        spinCount++;
-        
-        if (spinCount > maxSpins * 0.7) {
-          const reelToStop = Math.floor((spinCount - maxSpins * 0.7) / 4);
-          if (reelToStop < 5) {
-            setReelAnimations(prev => {
-              const newAnimations = [...prev];
-              newAnimations[reelToStop] = false;
-              return newAnimations;
-            });
+      let visualInterval: any;
+      // Use fixed timing for reliability - finish in ~3-4 seconds max
+      const durationPerReel = 800 + Math.random() * 400; // 800-1200ms per reel
+      const totalDuration = (durationPerReel * REEL_COUNT) + 500; // Add buffer
+      let stoppedReels = 0;
+      let resolved = false;
+
+      setReelAnimations(Array(REEL_COUNT).fill(true));
+
+      // Visual animation loop
+      visualInterval = setInterval(() => {
+        setReels(prev => prev.map(reel => reel.map(() => generateWeightedSymbol())));
+      }, Math.max(50, spinSpeed)); // Minimum 50ms for responsiveness
+
+      // Stop reels sequentially with setTimeout (more reliable than counting)
+      for (let reelIndex = 0; reelIndex < REEL_COUNT; reelIndex++) {
+        setTimeout(() => {
+          if (resolved) return;
+          setReelAnimations(prev => {
+            const newAnimations = [...prev];
+            newAnimations[reelIndex] = false;
+            return newAnimations;
+          });
+          stoppedReels++;
+          
+          // If this is the last reel, finalize
+          if (stoppedReels === REEL_COUNT) {
+            clearInterval(visualInterval);
+            const finalReels = Array(REEL_COUNT).fill(null).map(() =>
+              Array(ROWS).fill(null).map(() => generateWeightedSymbol())
+            );
+            setReelAnimations(Array(REEL_COUNT).fill(false));
+            setReels(finalReels);
+            resolved = true;
+            resolve(finalReels);
           }
-        }
-        
-        if (spinCount >= maxSpins) {
-          clearInterval(spinInterval);
-          setReelAnimations([false, false, false, false, false]);
-          
-          const finalReels = Array(5).fill(null).map(() => 
-            Array(3).fill(null).map(() => generateWeightedSymbol())
+        }, durationPerReel * (reelIndex + 1));
+      }
+
+      // Safety: force resolve after total duration
+      setTimeout(() => {
+        if (!resolved) {
+          clearInterval(visualInterval);
+          const finalReels = Array(REEL_COUNT).fill(null).map(() =>
+            Array(ROWS).fill(null).map(() => generateWeightedSymbol())
           );
-          
+          setReelAnimations(Array(REEL_COUNT).fill(false));
           setReels(finalReels);
+          resolved = true;
           resolve(finalReels);
         }
-      }, spinSpeed);
+      }, totalDuration);
     });
   };
 
   const handleSpin = async () => {
-    if (!user || betAmount * activePaylines > user.balance) {
+    // Log if state seems stuck (button handler should have cleared it, but just in case)
+    if (isSpinning || isPlaying) {
+      console.warn('[SLOTS] handleSpin called with stuck state - clearing it', { isSpinning, isPlaying });
+      setIsSpinning(false);
+      setIsPlaying(false);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    const totalBet = betAmount * activePaylines;
+    const availableBalance = walletUi;
+    console.log('[SLOTS] Click SPIN', {
+      userId: user?.id,
+      gameId,
+      gameName,
+      betPerLine: betAmount,
+      activePaylines,
+      totalBet,
+      availableBalance
+    });
+    if (!user || totalBet > availableBalance) {
       toast.error('Insufficient balance!');
       return;
     }
 
+    // Responsible gaming check with timeout
     try {
-      const hasViolation = await ResponsibleGamingService.checkLimitViolation(user.id, 'bet_amount', betAmount * activePaylines);
-      if (hasViolation) {
-        toast.error('This bet exceeds your responsible gaming limits');
+      await Promise.race([
+        ResponsibleGamingService.checkLimitViolation(user.id, 'bet_amount', betAmount * activePaylines).then(hasViolation => {
+          if (hasViolation) {
+            toast.error('This bet exceeds your responsible gaming limits');
+            throw new Error('Limit violation');
+          }
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Check timeout')), 2000))
+      ]).catch(err => {
+        if (err.message === 'Limit violation') throw err;
+        console.warn('Responsible gaming check timeout, proceeding anyway');
+      });
+    } catch (error: any) {
+      if (error.message === 'Limit violation') {
         return;
       }
-    } catch (error) {
       console.warn('Could not check responsible gaming limits:', error);
     }
 
     try {
       const totalBet = betAmount * activePaylines;
-      placeBet(totalBet);
       
-      await processBet(totalBet, 'Casino Game', `${gameName} - Spin (${activePaylines} lines @ ${formatCurrency(betAmount)})`, {
-        gameId,
-        gameName,
-        betAmount: totalBet,
-        paylines: activePaylines
-      });
-      
+      // Start UI immediately
       setIsPlaying(true);
       setIsSpinning(true);
       setWinLines([]);
-      setLastWin(0);
+      setLastLoss(0);
       setMultiplier(1);
       setWinAnimation(false);
 
-      const finalReels = await animateReels();
+      // Place bet with longer timeout and start animation in parallel
+      console.log('[SLOTS] Placing bet...', { totalBet, userId: user.id });
+      // Deduct locally right away for responsive UX
+      setWalletUi(w => Math.max(0, w - totalBet));
+      // Fire-and-forget socket ACK for production responsiveness
+      try { if (isConnected) socket?.emit('slots:bet', { userId: user.id, amount: totalBet, gameId, gameName }); } catch {}
+      let betResult: any = undefined;
+      const betPromise = placeBet(totalBet).then(result => {
+        console.log('[SLOTS] Bet placed successfully', result);
+        return result;
+      }).catch(err => {
+        console.error('[SLOTS] Bet placement failed:', err);
+        throw err;
+      });
+
+      // Start animation immediately, don't wait for bet
+      console.log('[SLOTS] Starting animation in parallel with bet placement...');
+      const animationPromise = animateReels();
+
+      // Try to get bet result with moderate timeout (4 seconds)
+      try {
+        betResult = await Promise.race([
+          betPromise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Bet timeout')), 4000))
+        ]);
+        console.log('[SLOTS] Bet completed before animation finished', betResult);
+      } catch (betError: any) {
+        console.warn('[SLOTS] Bet placement timeout or failed, will attempt to wait until finalize before reveal', betError);
+        // Don't show error toast - bet might still complete in background
+        // The bet will be retried or recorded later if needed
+      }
+
+      // Wait for animation to complete, then reveal without extra delay
+      const finalReels = await animationPromise;
       const { winLines: newWinLines, totalPayout, maxMultiplier } = checkWinningCombinations(finalReels);
+      console.log('[SLOTS] spin outcome', { winLines: newWinLines, totalPayout, maxMultiplier });
       
       setWinLines(newWinLines);
-      setLastWin(totalPayout);
+      setLastWin(totalPayout + totalBet);
+      try { sessionStorage.setItem(`${gameId}_lastWin`, String(totalPayout + totalBet)); } catch {}
+      setLastLoss(0);
       setMultiplier(maxMultiplier);
       
       if (totalPayout > 0) {
-        addWinnings(totalPayout);
+        // Ensure server win is recorded before we reveal (no timeout)
+        try {
+          const creditAmount = totalPayout + totalBet; // return stake + winnings
+          await addWinnings(creditAmount, betResult?.betId);
+          console.log('[SLOTS] addWinnings OK', { creditAmount, betId: betResult?.betId });
+        } catch (winError) {
+          console.error('Add winnings error (will store pending):', winError);
+          // Store pending win to flush on next spin or navigation
+          try { sessionStorage.setItem(getPendingKey(gameId), JSON.stringify({ winAmount: totalPayout + totalBet })); } catch {}
+        }
+        // Mirror wallet locally
+        setWalletUi(w => w + totalPayout + totalBet);
         setWinAnimation(true);
         setTimeout(() => setWinAnimation(false), 3000);
         
-        await processWin(totalPayout, 'Casino Game', `${gameName} - Win (${maxMultiplier.toFixed(1)}x multiplier)`, {
-          gameId,
-          gameName,
-          originalBet: totalBet,
-          multiplier: maxMultiplier,
-          winLines: newWinLines.length,
-          paylines: activePaylines
-        });
-        
         if (maxMultiplier >= 20) {
-          toast.success(`🎰 MEGA WIN! +${formatCurrency(totalPayout)} (${maxMultiplier.toFixed(1)}x)`, { duration: 8000 });
+          toast.success(`🎰 MEGA WIN! +${formatCurrency(totalPayout + totalBet)} (${maxMultiplier.toFixed(1)}x)`, { duration: 8000 });
         } else if (maxMultiplier >= 10) {
-          toast.success(`🎰 BIG WIN! +${formatCurrency(totalPayout)} (${maxMultiplier.toFixed(1)}x)`, { duration: 6000 });
+          toast.success(`🎰 BIG WIN! +${formatCurrency(totalPayout + totalBet)} (${maxMultiplier.toFixed(1)}x)`, { duration: 6000 });
         } else {
-          toast.success(`🎉 Win! +${formatCurrency(totalPayout)} (${maxMultiplier.toFixed(1)}x)`);
+          toast.success(`🎉 Win! +${formatCurrency(totalPayout + totalBet)} (${maxMultiplier.toFixed(1)}x)`);
         }
+      } else {
+        // Ensure server loss is recorded before we reveal (no timeout)
+        try {
+          await markLoss(betResult?.betId);
+          console.log('[SLOTS] markLoss OK', { totalBet, betId: betResult?.betId });
+        } catch (lossError) {
+          console.error('Mark loss error (will store pending):', lossError);
+          // Store pending loss to flush on next spin or navigation
+          try { sessionStorage.setItem(getPendingKey(gameId), JSON.stringify({ lossAmount: totalBet })); } catch {}
+        }
+        setLastLoss(totalBet);
+        try { sessionStorage.setItem(`${gameId}_lastWin`, '0'); } catch {}
+        toast.error(`Lost ${formatCurrency(totalBet)}`);
       }
         
       eventBus.emit('casinoWin', {
@@ -252,14 +417,14 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
         setAutoSpinCount(prev => prev + 1);
       }
       
-      setIsSpinning(false);
-      setIsPlaying(false);
-
     } catch (error) {
       console.error('Spin error:', error);
-      setIsPlaying(false);
+      toast.error(error instanceof Error ? error.message : 'Spin failed. Please try again.');
+    } finally {
+      // Always reset state immediately - synchronous update
+      console.log('[SLOTS] Resetting state - spin complete');
       setIsSpinning(false);
-      setAutoSpin(false);
+      setIsPlaying(false);
     }
   };
 
@@ -272,6 +437,20 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
       setAutoSpinCount(0);
     }
   };
+
+  // Before unload: attempt to flush pending result once more
+  useEffect(() => {
+    const handler = () => {
+      try {
+        const key = getPendingKey(gameId);
+        const raw = sessionStorage.getItem(key);
+        if (!raw) return;
+        // Leave it in storage; backend will be updated on next visit
+      } catch {}
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [gameId]);
 
   useEffect(() => {
     if (autoSpin && autoSpinCount < maxAutoSpins && !isSpinning) {
@@ -289,7 +468,7 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
   const totalBet = betAmount * activePaylines;
 
   return (
-    <div className="bg-gradient-to-b from-slate-800 via-purple-900/20 to-slate-900 rounded-3xl p-8 border-2 border-purple-500/30 relative overflow-hidden shadow-2xl">
+    <div className="bg-gradient-to-b from-slate-800 via-purple-900/20 to-slate-900 rounded-3xl p-4 md:p-8 border-2 border-purple-500/30 relative overflow-hidden shadow-2xl max-w-[1100px] mx-auto w-full">
       {/* Animated Background */}
       <div className="absolute inset-0 opacity-20">
         <div className="absolute top-0 left-0 w-40 h-40 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full blur-3xl animate-pulse"></div>
@@ -312,37 +491,41 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
       {/* Game Header */}
       <div className="relative z-10 text-center mb-8">
         <div className="flex items-center justify-center space-x-4 mb-6">
-          <Crown className="w-10 h-10 text-yellow-400 animate-pulse" />
-          <h2 className="text-5xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
+          <Crown className="w-8 h-8 md:w-10 md:h-10 text-yellow-400 animate-pulse" />
+          <h2 className="text-3xl md:text-5xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
             {gameName}
           </h2>
-          <Crown className="w-10 h-10 text-yellow-400 animate-pulse" />
+          <Crown className="w-8 h-8 md:w-10 md:h-10 text-yellow-400 animate-pulse" />
         </div>
         
         {/* Progressive Jackpot */}
         <div className="bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 rounded-2xl p-6 mb-6 border-4 border-yellow-400 shadow-2xl shadow-yellow-400/30 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 animate-pulse"></div>
           <div className="relative flex items-center justify-center space-x-4">
-            <Zap className="w-8 h-8 text-yellow-200 animate-bounce" />
+            <Zap className="w-6 h-6 md:w-8 md:h-8 text-yellow-200 animate-bounce" />
             <div className="text-center">
-              <p className="text-yellow-200 text-lg font-bold tracking-wider">PROGRESSIVE JACKPOT</p>
-              <p className="text-4xl font-bold text-white animate-pulse tracking-wider">
+              <p className="text-yellow-200 text-base md:text-lg font-bold tracking-wider">PROGRESSIVE JACKPOT</p>
+              <p className="text-2xl md:text-4xl font-bold text-white animate-pulse tracking-wider">
                 {formatCurrency(jackpotAmount)}
               </p>
               <p className="text-yellow-200 text-sm">5 Crowns on any payline wins!</p>
             </div>
-            <Zap className="w-8 h-8 text-yellow-200 animate-bounce" />
+            <Zap className="w-6 h-6 md:w-8 md:h-8 text-yellow-200 animate-bounce" />
           </div>
         </div>
         
         <div className="flex justify-center space-x-12 text-lg">
           <div className="text-center">
             <p className="text-slate-400 font-medium">Balance</p>
-            <p className="text-2xl font-bold text-green-400">{formatCurrency(session.balance)}</p>
+            <p className="text-2xl font-bold text-green-400">{formatCurrency(walletUi)}</p>
           </div>
           <div className="text-center">
             <p className="text-slate-400 font-medium">Last Win</p>
             <p className="text-2xl font-bold text-yellow-400">{formatCurrency(lastWin)}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-slate-400 font-medium">Last Loss</p>
+            <p className="text-2xl font-bold text-red-400">{formatCurrency(lastLoss)}</p>
           </div>
           <div className="text-center">
             <p className="text-slate-400 font-medium">Multiplier</p>
@@ -352,11 +535,11 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
       </div>
 
       {/* Slot Machine */}
-      <div className="relative z-10 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 rounded-3xl p-8 mb-8 border-4 border-gradient-to-r from-yellow-600 to-orange-600 shadow-2xl">
+      <div className="relative z-10 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 rounded-3xl p-4 md:p-8 mb-8 border-4 border-gradient-to-r from-yellow-600 to-orange-600 shadow-2xl">
         {/* Machine Frame */}
         <div className="bg-gradient-to-b from-yellow-600 via-orange-600 to-red-600 rounded-2xl p-3 mb-6 shadow-2xl">
-          <div className="bg-black rounded-xl p-6 shadow-inner">
-            <div className="grid grid-cols-5 gap-4">
+          <div className="bg-black rounded-xl p-3 md:p-6 shadow-inner">
+            <div className="grid grid-cols-3 gap-3 md:gap-4">
               {reels.map((reel, reelIndex) => (
                 <div key={reelIndex} className="relative">
                   <div className="bg-gradient-to-b from-slate-600 via-slate-700 to-slate-800 rounded-xl border-4 border-slate-500 overflow-hidden shadow-2xl">
@@ -370,7 +553,7 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
                           <div
                             key={symbolIndex}
                             className={`
-                              w-24 h-24 flex items-center justify-center text-5xl border-b-2 border-slate-600 last:border-b-0 relative
+                              w-16 h-16 md:w-24 md:h-24 flex items-center justify-center text-4xl md:text-5xl border-b-2 border-slate-600 last:border-b-0 relative
                               ${isWinningSymbol 
                                 ? 'bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 animate-pulse shadow-2xl shadow-yellow-400/50 border-yellow-300' 
                                 : 'bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900'
@@ -426,7 +609,7 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
 
         {/* Paylines Indicator */}
         <div className="flex justify-center space-x-2 mb-6">
-          {Array.from({ length: 9 }, (_, i) => (
+          {Array.from({ length: 5 }, (_, i) => (
             <div
               key={i}
               className={`w-4 h-4 rounded-full border-2 transition-all duration-300 ${
@@ -462,11 +645,11 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
                     onChange={(e) => setBetAmount(Math.max(1, parseInt(e.target.value) || 1))}
                     className="text-center text-xl font-bold"
                     min="1"
-                    max={Math.floor(session.balance / activePaylines)}
+                  max={Math.floor(Math.max(0, getAvailableBalance()) / activePaylines)}
                     disabled={isPlaying}
                   />
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setBetAmount(Math.min(100, Math.floor(session.balance / activePaylines)))} disabled={isPlaying}>
+                <Button variant="outline" size="sm" onClick={() => setBetAmount(Math.min(100, Math.floor(Math.max(0, getAvailableBalance()) / activePaylines)))} disabled={isPlaying}>
                   Max
                 </Button>
               </div>
@@ -489,13 +672,13 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
                 </Button>
                 <div className="flex-1 text-center bg-slate-700 rounded-xl p-3 border-2 border-blue-500/30">
                   <span className="text-3xl font-bold text-blue-400">{activePaylines}</span>
-                  <span className="text-lg text-slate-400 ml-2">/ 9</span>
+                  <span className="text-lg text-slate-400 ml-2">/ 5</span>
                 </div>
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => setActivePaylines(Math.min(9, activePaylines + 1))}
-                  disabled={isPlaying || activePaylines >= 9}
+                  onClick={() => setActivePaylines(Math.min(5, activePaylines + 1))}
+                  disabled={isPlaying || activePaylines >= 5}
                 >
                   +
                 </Button>
@@ -536,14 +719,29 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
         {/* Main Controls */}
         <div className="flex justify-center space-x-6">
           <Button
-            onClick={handleSpin}
-            disabled={isPlaying || totalBet > session.balance || totalBet < 1 || autoSpin}
+            onClick={async () => {
+              console.log('[SLOTS] Button clicked!', { isSpinning, isPlaying });
+              // Always reset stuck state first, then spin
+              if (isSpinning || isPlaying) {
+                console.log('[SLOTS] Detected stuck state - resetting before spin');
+                forceReset();
+                // Use requestAnimationFrame to ensure React processes the state update
+                await new Promise(resolve => {
+                  requestAnimationFrame(() => {
+                    setTimeout(resolve, 50);
+                  });
+                });
+              }
+              // Now call handleSpin - it will set state fresh
+              handleSpin();
+            }}
+            disabled={totalBet > walletUi || totalBet < 1}
             className="px-16 py-6 text-2xl font-bold bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 hover:from-green-500 hover:via-blue-500 hover:to-purple-500 transform hover:scale-110 transition-all duration-300 shadow-2xl shadow-blue-500/30 rounded-2xl border-2 border-blue-400"
           >
             {isSpinning ? (
               <div className="flex items-center space-x-3">
                 <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>SPINNING...</span>
+                <span>SPINNING... (Click to Reset)</span>
               </div>
             ) : (
               <>
@@ -555,8 +753,10 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
           
           <Button 
             variant="outline" 
-            onClick={resetSession} 
-            disabled={isPlaying}
+            onClick={() => {
+              forceReset();
+              resetSession();
+            }} 
             className="px-8 py-6 text-xl font-bold border-2 border-purple-500 hover:bg-purple-500/20"
           >
             <RotateCcw className="w-6 h-6 mr-3" />

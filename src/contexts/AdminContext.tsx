@@ -500,7 +500,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         type: amount > 0 ? 'bonus' : 'fee',
         status: 'completed',
         amount,
-        currency: 'USD',
+        currency: 'INR',
         fee: 0,
         method: 'Admin Adjustment',
         description: `Balance adjustment: ${reason}`,

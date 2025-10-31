@@ -29,9 +29,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initializeSession = async () => {
       try {
         console.log('AuthContext: Initializing session...');
-        const session = SessionManager.getUserSession();
+        const session = await SessionManager.getUserSession();
         if (session) {
-          console.log('AuthContext: Valid session found for user:', session.user.id);
+          console.log('AuthContext: Valid session found for user:', session.user.id, 'Balance:', session.user.balance);
           setUser(session.user);
           setIsAuthenticated(true);
           
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Listen for storage events and sync updates
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
+    const handleStorageChange = async (e: StorageEvent) => {
       if (!user) return;
       
       console.log('AuthContext: Storage event received:', e.key);
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(updatedUser);
             
             // Update session
-            const session = SessionManager.getUserSession();
+            const session = await SessionManager.getUserSession();
             if (session) {
               session.user = updatedUser;
               SessionManager.saveUserSession(session, localStorage.getItem('elitebet_user_session') !== null);
@@ -124,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const newBalance = data.newBalance !== undefined ? data.newBalance : user.balance + data.amount;
             const updatedUser = { ...user, balance: newBalance };
             setUser(updatedUser);
-            SessionManager.updateUserBalance(newBalance);
+            await SessionManager.updateUserBalance(newBalance);
             
             if (data.reason && !data.reason.includes('Bet') && !data.reason.includes('Win')) {
               toast.success(`Balance updated: ${data.reason}`);
@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(updatedUser);
             
             // Update session
-            const session = SessionManager.getUserSession();
+            const session = await SessionManager.getUserSession();
             if (session) {
               session.user = updatedUser;
               SessionManager.saveUserSession(session, localStorage.getItem('elitebet_user_session') !== null);
@@ -190,7 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(updatedUser);
             
             // Update session
-            const session = SessionManager.getUserSession();
+            const session = await SessionManager.getUserSession();
             if (session) {
               session.user = updatedUser;
               SessionManager.saveUserSession(session, localStorage.getItem('elitebet_user_session') !== null);
@@ -211,7 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!isAuthenticated) return;
 
     const refreshInterval = setInterval(async () => {
-      const session = SessionManager.getUserSession();
+      const session = await SessionManager.getUserSession();
       if (session) {
         const thirtyMinutesFromNow = new Date(Date.now() + 30 * 60 * 1000);
         if (session.expiresAt < thirtyMinutesFromNow) {
@@ -243,27 +243,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let mockUser: User;
       
       if (existingUser) {
-        // User exists, use stored data
+        // User exists, use stored data but START WITH 0
         console.log('AuthContext: Existing user found:', existingUser.id);
         mockUser = {
           id: existingUser.id,
           email: existingUser.email,
           firstName: existingUser.firstName,
           lastName: existingUser.lastName,
-          balance: existingUser.balance || 0,
-          currency: 'USD',
+          balance: 0, // Start with 0 - will fetch from backend
+          currency: 'INR',
           isVerified: existingUser.isVerified || false,
           createdAt: new Date(existingUser.registrationDate || existingUser.createdAt),
           lastLogin: new Date()
         };
-        
-        // Update last login in storage
-        const updatedStoredUser = {
-          ...existingUser,
-          lastLogin: new Date(),
-          balance: existingUser.balance || 0
-        };
-        DataStorage.addOrUpdateUser(updatedStoredUser);
       } else {
         // Demo login - create demo user
         console.log('AuthContext: Creating demo user for login:', email);
@@ -275,7 +267,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           firstName: email === 'demo@elitebet.com' ? 'Demo' : email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1),
           lastName: 'User',
           balance: email === 'demo@elitebet.com' ? 1000 : 0, // Demo user gets $1000
-          currency: 'USD',
+          currency: 'INR',
           isVerified: email === 'demo@elitebet.com', // Demo user is pre-verified
           createdAt: new Date(),
           lastLogin: new Date()
@@ -306,6 +298,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         syncManager.addSyncEvent('user_registration', userId, adminUser, 'user');
       }
 
+      // Try to fetch real balance from MongoDB backend FIRST
+      console.log('AuthContext: Fetching balance from MongoDB backend for:', mockUser.id);
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+        const balanceResponse = await fetch(`${backendUrl}/balance/${mockUser.id}`);
+        
+        if (balanceResponse.ok) {
+          const balanceData = await balanceResponse.json();
+          if (balanceData.success && balanceData.balance !== undefined) {
+            console.log('✅ AuthContext: Got REAL balance from backend:', balanceData.balance);
+            mockUser.balance = balanceData.balance;
+            
+            // Update localStorage with the real balance
+            if (existingUser) {
+              const updatedStoredUser = {
+                ...existingUser,
+                balance: balanceData.balance,
+                lastLogin: new Date(),
+                updatedAt: new Date()
+              };
+              DataStorage.addOrUpdateUser(updatedStoredUser);
+              console.log('AuthContext: Updated localStorage with balance:', balanceData.balance);
+            }
+          }
+        } else {
+          console.log('AuthContext: Backend returned status:', balanceResponse.status);
+        }
+      } catch (backendError) {
+        console.log('AuthContext: Could not fetch balance from backend:', backendError);
+      }
+
       // Create session with appropriate expiry
       const expiresAt = new Date(Date.now() + (rememberMe ? 30 : 1) * 24 * 60 * 60 * 1000);
       const session: AuthSession = {
@@ -319,7 +342,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(mockUser);
       setIsAuthenticated(true);
       
-      console.log('AuthContext: Login successful for user:', mockUser.id);
+      console.log('✅ AuthContext: Login successful for user:', mockUser.id, 'Final Balance:', mockUser.balance);
       toast.success(`Welcome back, ${mockUser.firstName}!`);
       
     } catch (err) {
@@ -356,7 +379,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,
-        balance: 100, // Welcome bonus
+        balance: 0, // No automatic bonus - admin can add referral bonus
         currency: 'USD',
         isVerified: false,
         createdAt: new Date(),
@@ -401,7 +424,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       syncManager.addSyncEvent('user_registration', userId, adminUser, 'user');
       
       console.log('AuthContext: Registration successful for user:', mockUser.id);
-      toast.success(`Welcome to Elite Bet, ${mockUser.firstName}! You received $100 welcome bonus!`);
+      toast.success(`Welcome to Elite Bet, ${mockUser.firstName}!`);
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Registration failed';
@@ -421,18 +444,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     toast.success('Logged out successfully');
   };
 
-  const updateBalance = (amount: number) => {
+  const updateBalance = async (newBalance: number) => {
     if (user) {
-      const newBalance = Math.max(0, user.balance + amount);
+      console.log('AuthContext: updateBalance called with newBalance:', newBalance);
       const updatedUser = { ...user, balance: newBalance };
       setUser(updatedUser);
       SessionManager.updateUserBalance(newBalance);
       
-      console.log('AuthContext: Balance updated:', {
+      console.log('AuthContext: Balance updated in state:', {
         userId: user.id,
         oldBalance: user.balance,
-        newBalance,
-        change: amount
+        newBalance
       });
       
       // Update user in storage
@@ -458,20 +480,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           firstName: user.firstName,
           lastName: user.lastName,
           balance: newBalance,
-          amount: amount,
+          amount: newBalance - user.balance,
           previousBalance: user.balance
         }, 'user');
       }
     }
   };
 
-  const updateUser = (updates: Partial<User>) => {
+  const updateUser = async (updates: Partial<User>) => {
     if (user) {
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
       
       // Update session
-      const session = SessionManager.getUserSession();
+      const session = await SessionManager.getUserSession();
       if (session) {
         session.user = updatedUser;
         SessionManager.saveUserSession(session, localStorage.getItem('elitebet_user_session') !== null);
@@ -503,7 +525,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const refreshed = await SessionManager.refreshUserToken();
       if (refreshed) {
-        const session = SessionManager.getUserSession();
+        const session = await SessionManager.getUserSession();
         if (session) {
           setUser(session.user);
           setIsAuthenticated(true);

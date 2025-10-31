@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Gift, X, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/SupabaseAuthContext';
 import { Button } from './ui/Button';
@@ -9,15 +9,13 @@ export function WelcomeBonusNotification() {
   const [showBonus, setShowBonus] = useState(false);
   const [hasSeenBonus, setHasSeenBonus] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-
-    // Check if user has seen the welcome bonus notification
-    const bonusSeen = localStorage.getItem(`welcome_bonus_seen_${user.id}`);
+  const handleDismiss = useCallback(() => {
+    setShowBonus(false);
+    setHasSeenBonus(true);
     
-    if (!bonusSeen && user.balance >= 100) {
-      // Show bonus notification for new users with $100+ balance
-      setShowBonus(true);
+    // Mark as seen
+    if (user) {
+      localStorage.setItem(`welcome_bonus_seen_${user.id}`, 'true');
     }
   }, [user]);
 
@@ -30,18 +28,27 @@ export function WelcomeBonusNotification() {
       localStorage.setItem(`welcome_bonus_seen_${user.id}`, 'true');
     }
     
-    toast.success('🎉 Welcome to Elite Bet! Enjoy your $100 welcome bonus!');
+    toast.success('🎉 Welcome to Elite Bet! Your referral bonus is ready!');
   };
 
-  const handleDismiss = () => {
-    setShowBonus(false);
-    setHasSeenBonus(true);
+  useEffect(() => {
+    if (!user) return;
+
+    // Check if user has seen the welcome bonus notification
+    const bonusSeen = localStorage.getItem(`welcome_bonus_seen_${user.id}`);
     
-    // Mark as seen
-    if (user) {
-      localStorage.setItem(`welcome_bonus_seen_${user.id}`, 'true');
+    if (!bonusSeen && user.balance >= 10) {
+      // Show bonus notification for users with balance (including referral bonuses)
+      setShowBonus(true);
+      
+      // Auto-dismiss after 15 seconds
+      const timer = setTimeout(() => {
+        handleDismiss();
+      }, 15000);
+      
+      return () => clearTimeout(timer);
     }
-  };
+  }, [user, handleDismiss]);
 
   if (!showBonus || hasSeenBonus) return null;
 
@@ -68,7 +75,7 @@ export function WelcomeBonusNotification() {
           
           <h2 className="text-3xl font-bold mb-4">Welcome Bonus!</h2>
           <p className="text-white/90 mb-6 text-lg">
-            🎉 Congratulations! You've received a <span className="font-bold text-yellow-300">$100 welcome bonus</span> to get you started!
+            🎉 Congratulations! You've received a <span className="font-bold text-yellow-300">referral bonus</span> from an admin!
           </p>
           
           <div className="bg-white/10 rounded-lg p-4 mb-6">
@@ -77,7 +84,7 @@ export function WelcomeBonusNotification() {
               <span className="font-semibold">Bonus Details:</span>
             </div>
             <ul className="text-sm text-white/80 space-y-1">
-              <li>• $100 credited to your account</li>
+              <li>• Bonus credited to your account</li>
               <li>• No wagering requirements</li>
               <li>• Use on any games or sports</li>
               <li>• Valid immediately</li>
@@ -88,7 +95,7 @@ export function WelcomeBonusNotification() {
             onClick={handleClaimBonus}
             className="w-full bg-white text-green-600 hover:bg-white/90 font-bold py-3 rounded-lg"
           >
-            Claim Welcome Bonus
+            Acknowledged
           </Button>
           
           <p className="text-white/70 text-sm mt-4">

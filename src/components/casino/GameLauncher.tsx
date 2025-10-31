@@ -4,7 +4,8 @@ import { Button } from '../ui/Button';
 import { formatCurrency } from '../../lib/utils';
 import { SlotMachine } from './SlotMachine';
 import { BlackjackGame } from './BlackjackGame';
-import { RouletteGame } from './RouletteGame';
+import Roulette from './Roulette';
+import Mines from './Mines';
 import { BaccaratGame } from './BaccaratGame';
 import { LotteryGame } from './LotteryGame';
 import { CasinoGame } from '../../types/casino';
@@ -34,7 +35,10 @@ export function GameLauncher({ game, onClose }: GameLauncherProps) {
       return <SlotMachine gameId={game.id} gameName={game.name} />;
     }
     if (game.id === 'premium-roulette') {
-      return <RouletteGame gameId={game.id} gameName={game.name} />;
+      return <Roulette />;
+    }
+    if (game.id === 'mines') {
+      return <Mines gameId={game.id} gameName={game.name} />;
     }
     if (game.id === 'professional-blackjack') {
       return <BlackjackGame gameId={game.id} gameName={game.name} />;

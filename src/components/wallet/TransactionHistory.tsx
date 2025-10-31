@@ -15,10 +15,30 @@ export function TransactionHistory() {
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  // Debug logging (disabled to prevent console spam)
+  // console.log('TransactionHistory: transactions =', transactions?.length || 0, transactions);
+  // console.log('TransactionHistory: isLoading =', isLoading);
+
+  // Calculate totals from ALL transactions (not just filtered)
+  const totalBalance = transactions?.filter(t => t.status === 'completed').reduce((sum, t) => {
+    if (t.type === 'deposit' || t.type === 'win' || t.type === 'bonus') {
+      return sum + t.amount;
+    } else if (t.type === 'withdrawal' || t.type === 'bet') {
+      return sum - Math.abs(t.amount);
+    }
+    return sum;
+  }, 0) || 0;
+
+  const totalDeposits = transactions?.filter(t => t.type === 'deposit' && t.status === 'completed').reduce((sum, t) => sum + t.amount, 0) || 0;
+  const totalWinnings = transactions?.filter(t => t.type === 'win' && t.status === 'completed').reduce((sum, t) => sum + t.amount, 0) || 0;
+  const totalBets = transactions?.filter(t => t.type === 'bet' && t.status === 'completed').reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0;
+
+  // console.log('TransactionHistory: Calculated totals:', { totalBalance, totalDeposits, totalWinnings, totalBets });
+
   const filterOptions = [
     { value: 'all', label: 'All Transactions' },
     { value: 'deposit', label: 'Deposits' },
-    { value: 'withdraw', label: 'Withdrawals' },
+    { value: 'withdrawal', label: 'Withdrawals' },
     { value: 'bet', label: 'Bets' },
     { value: 'win', label: 'Winnings' },
     { value: 'bonus', label: 'Bonuses' }
@@ -42,6 +62,7 @@ export function TransactionHistory() {
       case 'bonus':
         return <ArrowDownLeft className="w-5 h-5 text-green-400" />;
       case 'withdraw':
+      case 'withdrawal':
       case 'bet':
         return <ArrowUpRight className="w-5 h-5 text-red-400" />;
       default:
@@ -153,7 +174,10 @@ export function TransactionHistory() {
   const filterTransactions = (transactions: Transaction[]): Transaction[] => {
     return transactions.filter(transaction => {
       // Type filter
-      if (filter !== 'all' && transaction.type !== filter) return false;
+      if (filter !== 'all') {
+        const normalizedType = transaction.type === 'withdraw' ? 'withdrawal' : transaction.type;
+        if (normalizedType !== filter) return false;
+      }
       
       // Search filter
       if (searchTerm && !transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) &&
@@ -281,18 +305,7 @@ export function TransactionHistory() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-green-400 text-sm font-medium">Current Balance</p>
-                <p className="text-white text-2xl font-bold">{formatCurrency(
-                  filteredTransactions
-                    .filter(t => t.status === 'completed')
-                    .reduce((sum, t) => {
-                      if (t.type === 'deposit' || t.type === 'win' || t.type === 'bonus') {
-                        return sum + t.amount;
-                      } else if (t.type === 'withdrawal' || t.type === 'bet') {
-                        return sum - Math.abs(t.amount);
-                      }
-                      return sum;
-                    }, 0)
-                )}</p>
+                <p className="text-white text-2xl font-bold">{formatCurrency(totalBalance)}</p>
               </div>
               <DollarSign className="w-8 h-8 text-green-400" />
             </div>
@@ -302,13 +315,7 @@ export function TransactionHistory() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-400 text-sm font-medium">Total Deposits</p>
-                <p className="text-white text-xl font-semibold">
-                  {formatCurrency(
-                    filteredTransactions
-                      .filter(t => t.type === 'deposit' && t.status === 'completed')
-                      .reduce((sum, t) => sum + t.amount, 0)
-                  )}
-                </p>
+                <p className="text-white text-xl font-semibold">{formatCurrency(totalDeposits)}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-blue-400" />
             </div>
@@ -318,13 +325,7 @@ export function TransactionHistory() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-purple-400 text-sm font-medium">Total Winnings</p>
-                <p className="text-white text-xl font-semibold">
-                  {formatCurrency(
-                    filteredTransactions
-                      .filter(t => t.type === 'win' && t.status === 'completed')
-                      .reduce((sum, t) => sum + t.amount, 0)
-                  )}
-                </p>
+                <p className="text-white text-xl font-semibold">{formatCurrency(totalWinnings)}</p>
               </div>
               <TrendingUp className="w-8 h-8 text-purple-400" />
             </div>
@@ -334,13 +335,7 @@ export function TransactionHistory() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-orange-400 text-sm font-medium">Total Bets</p>
-                <p className="text-white text-xl font-semibold">
-                  {formatCurrency(
-                    filteredTransactions
-                      .filter(t => t.type === 'bet' && t.status === 'completed')
-                      .reduce((sum, t) => sum + Math.abs(t.amount), 0)
-                  )}
-                </p>
+                <p className="text-white text-xl font-semibold">{formatCurrency(totalBets)}</p>
               </div>
               <TrendingDown className="w-8 h-8 text-orange-400" />
             </div>
@@ -380,7 +375,7 @@ export function TransactionHistory() {
                     
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
-                        <h4 className="text-lg font-semibold text-white capitalize">{transaction.type}</h4>
+                        <h4 className="text-lg font-semibold text-white capitalize">{(transaction.type === 'withdrawal' && transaction.status === 'pending') ? 'Withdrawal Submitted' : transaction.type}</h4>
                         {getStatusBadge(transaction.status)}
                       </div>
                       

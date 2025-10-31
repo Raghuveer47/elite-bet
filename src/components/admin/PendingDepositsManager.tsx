@@ -46,6 +46,9 @@ export function PendingDepositsManager() {
   };
 
   const openImageModal = (payment: PendingPayment) => {
+    console.log('Opening image modal for payment:', payment.id);
+    console.log('Payment screenshot URL:', payment.paymentProofUrl);
+    console.log('Full payment data:', payment);
     setSelectedPayment(payment);
     setShowImageModal(true);
   };
@@ -220,11 +223,26 @@ export function PendingDepositsManager() {
                 </div>
 
                 <div className="text-center">
-                  <img
-                    src={selectedPayment.paymentProofUrl}
-                    alt="Payment Screenshot"
-                    className="max-w-full h-auto rounded-lg border border-slate-600"
-                  />
+                  {selectedPayment.paymentProofUrl ? (
+                    <img
+                      src={selectedPayment.paymentProofUrl}
+                      alt="Payment Screenshot"
+                      className="max-w-full h-auto rounded-lg border border-slate-600"
+                      onError={(e) => {
+                        console.error('Failed to load payment screenshot:', selectedPayment.paymentProofUrl);
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const errorMsg = document.createElement('div');
+                        errorMsg.className = 'text-red-400 p-4 bg-red-900/20 rounded-lg border border-red-500';
+                        errorMsg.innerHTML = `Failed to load image<br/><span class="text-xs text-slate-400">${selectedPayment.paymentProofUrl}</span>`;
+                        target.parentElement?.appendChild(errorMsg);
+                      }}
+                    />
+                  ) : (
+                    <div className="text-slate-400 p-4 bg-slate-700 rounded-lg border border-slate-600">
+                      <p>No payment screenshot provided</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { User, Shield, Settings, Bell, Lock, Eye, EyeOff, Camera, CheckCircle, AlertTriangle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User as UserIcon, Shield, Settings, Bell, Lock, Eye, EyeOff, Camera, CheckCircle, AlertTriangle, Copy, Link as LinkIcon, Gem } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { formatCurrency } from '../lib/utils';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { KYCVerificationView } from '../components/kyc/KYCVerification';
 import { ResponsibleGamingControls } from '../components/responsibleGaming/ResponsibleGamingControls';
@@ -15,7 +16,7 @@ export function AccountPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [kycStatus, setKycStatus] = useState<any>(null);
+  // kycStatus not used; removed to satisfy linter
   
   const [profileData, setProfileData] = useState({
     firstName: user?.firstName || '',
@@ -71,7 +72,7 @@ export function AccountPage() {
   }, [user]);
 
   const tabs = [
-    { id: 'profile', name: 'Profile', icon: User },
+    { id: 'profile', name: 'Profile', icon: UserIcon },
     { id: 'verification', name: 'Verification', icon: Shield },
     { id: 'security', name: 'Security', icon: Lock },
     { id: 'preferences', name: 'Preferences', icon: Settings },
@@ -612,7 +613,7 @@ export function AccountPage() {
               <div className="text-right">
                 <p className="text-slate-400 text-sm">Account Balance</p>
                 <p className="text-2xl font-bold text-green-400">
-                  ${(user?.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  {formatCurrency(user?.balance || 0, 'INR')}
                 </p>
               </div>
             </div>
@@ -643,6 +644,52 @@ export function AccountPage() {
               );
             })}
           </div>
+        </div>
+
+        {/* Referral Section */}
+        <div className="mb-8 bg-slate-800/60 rounded-xl p-6 border border-slate-700">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Gem className="w-6 h-6 text-emerald-400" />
+              <h2 className="text-xl font-bold">Referral Program</h2>
+            </div>
+            {user?.referralCode && (
+              <span className="text-sm text-slate-400">Share and earn ₹250 per friend</span>
+            )}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <p className="text-slate-400 text-sm mb-2">Your Referral Code</p>
+              <div className="flex items-center gap-2">
+                <Input readOnly value={user?.referralCode || '—'} className="font-mono" />
+                <Button
+                  variant="outline"
+                  onClick={() => navigator.clipboard.writeText(user?.referralCode || '')}
+                  disabled={!user?.referralCode}
+                >
+                  <Copy className="w-4 h-4 mr-1" /> Copy
+                </Button>
+              </div>
+            </div>
+            <div>
+              <p className="text-slate-400 text-sm mb-2">Referral Link</p>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={user?.referralCode ? `${window.location.origin}/register?ref=${user.referralCode}` : '—'}
+                  className="font-mono"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => user?.referralCode && navigator.clipboard.writeText(`${window.location.origin}/register?ref=${user.referralCode}`)}
+                  disabled={!user?.referralCode}
+                >
+                  <LinkIcon className="w-4 h-4 mr-1" /> Copy Link
+                </Button>
+              </div>
+            </div>
+          </div>
+          <p className="text-slate-400 text-xs mt-3">Friends receive ₹100 on signup. You earn ₹250 when they join.</p>
         </div>
 
         {/* Tab Content */}

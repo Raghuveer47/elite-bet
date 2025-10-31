@@ -13,7 +13,7 @@ export function RegisterPage() {
     confirmPassword: '',
     firstName: '',
     lastName: '',
-    country: '',
+    country: 'India',
     agreeToTerms: false,
     agreeToMarketing: false
   });
@@ -24,9 +24,7 @@ export function RegisterPage() {
   const navigate = useNavigate();
 
   const countries = [
-    'United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 
-    'France', 'Spain', 'Italy', 'Netherlands', 'Sweden', 'Norway', 'Denmark',
-    'Switzerland', 'Austria', 'Belgium', 'Ireland', 'Portugal', 'Finland'
+    'India'
   ];
 
   const validateForm = () => {
@@ -259,10 +257,7 @@ export function RegisterPage() {
                   className="w-full pl-10 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                   disabled={isLoading}
                 >
-                  <option value="">Select your country</option>
-                  {countries.map(country => (
-                    <option key={country} value={country}>{country}</option>
-                  ))}
+                  <option value="India">India</option>
                 </select>
                 {errors.country && <p className="text-sm text-red-400 mt-1">{errors.country}</p>}
               </div>
@@ -336,7 +331,7 @@ export function RegisterPage() {
               <div>
                 <p className="text-sm text-green-300 font-medium">Secure Registration</p>
                 <p className="text-xs text-slate-400">
-                  Your data is protected with bank-level encryption. New accounts receive a $100 welcome bonus!
+                  Your data is protected with bank-level encryption.
                 </p>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   TrendingUp, Wallet, Trophy, Clock, DollarSign, Activity, 
@@ -15,7 +15,7 @@ import { BalanceDebugger } from '../components/BalanceDebugger';
 
 function DashboardContent() {
   const { user, isAuthenticated } = useAuth();
-  const { getTransactions, stats, getBalance, getAvailableBalance, refreshWallet, accounts } = useWallet();
+  const { getTransactions, stats, getBalance, getAvailableBalance, refreshWallet, accounts, transactions } = useWallet();
   const [selectedPeriod, setSelectedPeriod] = useState('today');
   const [showAdvancedStats, setShowAdvancedStats] = useState(false);
   const [realTimeMetrics, setRealTimeMetrics] = useState({
@@ -27,28 +27,12 @@ function DashboardContent() {
     totalSessions: 0
   });
 
-  // Force re-render when balance changes by including it in state
-  const [balanceKey, setBalanceKey] = useState(0);
-  
-  const recentTransactions = getTransactions(10);
+  // Memoize transactions to prevent infinite loops
+  const recentTransactions = useMemo(() => getTransactions(10), [transactions.length, user?.id]);
   const currentBalance = getBalance();
   const availableBalance = getAvailableBalance();
 
-  // Watch for balance changes and force re-render
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setBalanceKey(prev => prev + 1);
-    }, 500); // Update every 500ms to show real-time balance
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  // Also re-render when user balance changes
-  useEffect(() => {
-    setBalanceKey(prev => prev + 1);
-  }, [user?.balance, accounts]);
-
-  // Calculate real-time user metrics
+  // Calculate real-time user metrics - use transactions.length as stable dependency
   useEffect(() => {
     if (!user || recentTransactions.length === 0) return;
 
@@ -78,7 +62,7 @@ function DashboardContent() {
       favoriteGame: favoriteGame,
       totalSessions: bets.length
     });
-  }, [user, recentTransactions]);
+  }, [user?.id, transactions.length]); // Use stable dependencies to prevent infinite loop
 
   // Redirect if not authenticated
   if (!isAuthenticated || !user) {

@@ -267,7 +267,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               type: 'win',
               status: 'completed',
               amount: betResult.winAmount,
-              currency: 'USD',
+              currency: 'INR',
               fee: 0,
               method: 'Sports Betting',
               description: `Sports Bet Win - ${formatCurrency(betResult.winAmount)} (${betResult.odds}x)`,
@@ -365,7 +365,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
                 type: balanceUpdate.amount > 0 ? 'bonus' : 'fee',
                 status: 'completed',
                 amount: balanceUpdate.amount,
-                currency: 'USD',
+                currency: 'INR',
                 fee: 0,
                 method: 'Admin Adjustment',
                 description: balanceUpdate.reason,
@@ -507,7 +507,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       {
         id: `acc_${user.id}_usd_main`,
         userId: user.id,
-        currency: 'USD',
+        currency: 'INR',
         accountType: 'main',
         balance: user.balance,
         reservedBalance: 0,
@@ -517,7 +517,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       {
         id: `acc_${user.id}_usd_bonus`,
         userId: user.id,
-        currency: 'USD',
+        currency: 'INR',
         accountType: 'bonus',
         balance: 0,
         reservedBalance: 0,
@@ -561,7 +561,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.balance]);
 
-  const getBalance = (currency: string = 'USD') => {
+  const getBalance = (currency: string = 'INR') => {
     const account = accounts.find(acc => acc.currency === currency && acc.accountType === 'main');
     return account?.balance || user?.balance || 0;
   };
@@ -631,7 +631,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         type: 'bet',
         status: 'completed',
         amount: -amount,
-        currency: 'USD',
+        currency: 'INR',
         fee: 0,
         method: gameType,
         description: description || `${gameType} - Bet placed`,
@@ -669,7 +669,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         type: 'win',
         status: 'completed',
         amount: amount,
-        currency: 'USD',
+        currency: 'INR',
         fee: 0,
         method: gameType,
         description: description || `${gameType} - Win awarded`,
@@ -1138,9 +1138,9 @@ export function useWallet() {
 }
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'INR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);

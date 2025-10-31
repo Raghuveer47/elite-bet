@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, AuthSession, RegisterData } from '../types/auth';
 import { SupabaseAuthService } from '../services/supabaseAuthService';
+import { BackendAuthService } from '../services/backendAuthService';
 import { supabase } from '../lib/supabase';
 import { SessionHelper } from '../utils/sessionHelper';
 import toast from 'react-hot-toast';
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const useBackend = (import.meta as any).env?.VITE_USE_BACKEND_AUTH === 'true';
 
   // Initialize session on app start
   useEffect(() => {
@@ -43,11 +45,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeSession = async () => {
       try {
+        // Backend-auth first: restore from token if enabled
+        if ((import.meta as any).env?.VITE_USE_BACKEND_AUTH === 'true') {
+          console.log('AuthContext: Initializing backend session...');
+          const token = localStorage.getItem('elitebet_backend_token');
+          if (token) {
+            try {
+              const r = await BackendAuthService.me(token);
+              const convertedUser: User = {
+                id: r.user.userId,
+                email: r.user.email,
+                firstName: r.user.firstName || r.user.email.split('@')[0] || 'User',
+                lastName: r.user.lastName || '',
+                balance: r.user.balance,
+                currency: 'INR',
+                isVerified: true,
+                createdAt: new Date(),
+                lastLogin: new Date()
+              };
+              setUser(convertedUser);
+              setIsAuthenticated(true);
+              setIsLoading(false);
+              console.log('AuthContext: Backend session restored for', convertedUser.email);
+              return;
+            } catch (e) {
+              console.log('AuthContext: No valid backend session');
+            }
+          }
+          setIsLoading(false);
+          return;
+        }
+
         console.log('AuthContext: Initializing Supabase session...');
         
         // Check if Supabase is properly configured
         if (!supabaseUrl || !supabaseAnonKey) {
-          console.error('AuthContext: Supabase not configured');
+          console.debug('AuthContext: Supabase not configured');
           if (isMounted) {
             setIsLoading(false);
           }
@@ -135,8 +168,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 email: session.user.email || '',
                 firstName: session.user.user_metadata?.first_name || 'User',
                 lastName: session.user.user_metadata?.last_name || 'Name',
-                balance: 100, // Welcome bonus for new users
-                currency: 'USD',
+                balance: 0, // No automatic bonus - admin can add referral bonus
+                currency: 'INR',
                 isVerified: !!session.user.email_confirmed_at,
                 createdAt: new Date(session.user.created_at),
                 lastLogin: new Date()
@@ -185,9 +218,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Add a small delay to ensure Supabase is ready
     setTimeout(initializeSession, 100);
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    // Listen for auth changes (skip when backend auth is enabled)
+    const authListener = !useBackend ? supabase.auth.onAuthStateChange(
+      async (event: any, session: any) => {
         console.log('AuthContext: Auth state changed:', event, session?.user?.email);
         
         if (event === 'SIGNED_IN' && session?.user) {
@@ -206,8 +239,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 email: session.user.email || '',
                 firstName: session.user.user_metadata?.first_name || 'User',
                 lastName: session.user.user_metadata?.last_name || 'Name',
-                balance: 100, // Welcome bonus for new users
-                currency: 'USD',
+                balance: 0, // No automatic bonus - admin can add referral bonus
+                currency: 'INR',
                 isVerified: !!session.user.email_confirmed_at,
                 createdAt: new Date(session.user.created_at),
                 lastLogin: new Date()
@@ -256,12 +289,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('AuthContext: Password recovery initiated');
         }
       }
-    );
+    ) : { data: { subscription: { unsubscribe: () => {} } } } as any;
 
     return () => {
       isMounted = false;
       clearTimeout(loadingTimeout);
-      subscription.unsubscribe();
+      authListener.data.subscription.unsubscribe();
     };
   }, []);
 
@@ -330,6 +363,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
+      // Prefer backend auth when flag enabled
+      if ((import.meta as any).env?.VITE_USE_BACKEND_AUTH === 'true') {
+          const r = await BackendAuthService.login(email, password);
+          // Immediately call /me to pull extended fields (country/referral)
+          let extended = r;
+          try {
+            const token = r.token as any;
+            const me = await BackendAuthService.me(token);
+            (extended as any).user = { ...(r.user as any), ...(me.user as any) };
+          } catch {}
+          const convertedUser: User = {
+            id: extended.user.userId,
+            email: extended.user.email,
+            firstName: extended.user.firstName || extended.user.email.split('@')[0] || 'User',
+            lastName: extended.user.lastName || '',
+            balance: extended.user.balance,
+            currency: 'INR',
+            isVerified: true,
+            createdAt: new Date(),
+            lastLogin: new Date(),
+            country: (extended as any)?.user?.country || 'India',
+            referralCode: (extended as any)?.user?.referralCode || null
+          };
+        setUser(convertedUser);
+        setIsAuthenticated(true);
+        localStorage.setItem('elitebet_backend_token', r.token);
+        localStorage.setItem('elitebet_user_session', JSON.stringify({ user: convertedUser, token: r.token, expiresAt: new Date(Date.now()+7*864e5).toISOString() }));
+        // Sync user email/name into Mongo so Admin shows real email
+        try {
+          const base = ((import.meta as any).env?.VITE_BACKEND_URL || 'http://localhost:3001/api/betting');
+          await fetch(`${base}/sync-user`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: convertedUser.id, email: convertedUser.email, firstName: convertedUser.firstName, lastName: convertedUser.lastName })
+          });
+        } catch {}
+        toast.success('Login successful!');
+        return;
+      }
+
       const result = await SupabaseAuthService.signIn(email, password);
       
       if (result.success && result.user) {
@@ -388,6 +460,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('AuthContext: Attempting registration for:', data.email);
       
+      if ((import.meta as any).env?.VITE_USE_BACKEND_AUTH === 'true') {
+        // Pass country (default India) and optional referralCode from querystring if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const referralCode = urlParams.get('ref') || undefined;
+        const country = data.country || 'India';
+        await BackendAuthService.register(data.email, data.password, data.firstName, data.lastName, country, referralCode);
+        toast.success('Registration successful!');
+        return;
+      }
+
       const result = await SupabaseAuthService.signUp(
         data.email,
         data.password,
@@ -535,13 +617,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       console.log('AuthContext: Balance updated locally to:', newBalance);
       
-      // Try to update in Supabase in background (non-blocking)
-      try {
-        const change = newBalance - oldBalance;
-        await SupabaseAuthService.updateUserBalance(user.id, change);
-        console.log('AuthContext: Supabase balance update successful');
-      } catch (error) {
-        console.warn('AuthContext: Supabase update failed, but balance updated locally:', error);
+      if (!useBackend) {
+        // Try to update in Supabase in background (non-blocking)
+        try {
+          const change = newBalance - oldBalance;
+          await SupabaseAuthService.updateUserBalance(user.id, change);
+          console.log('AuthContext: Supabase balance update successful');
+        } catch (error) {
+          console.warn('AuthContext: Supabase update failed, but balance updated locally:', error);
+        }
       }
     } catch (error: any) {
       console.error('AuthContext: Update balance error:', error);
@@ -553,7 +637,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     try {
       console.log('AuthContext: Updating user:', user.id, updates);
-      
+      if (useBackend) {
+        const updatedUser: User = { ...user, ...updates } as User;
+        setUser(updatedUser);
+        const sessionData = localStorage.getItem('elitebet_user_session');
+        if (sessionData) {
+          const session = JSON.parse(sessionData);
+          session.user = { ...session.user, ...updates };
+          localStorage.setItem('elitebet_user_session', JSON.stringify(session));
+        }
+        toast.success('Profile updated');
+        return;
+      }
+
       // Convert our User type to Supabase format
       const supabaseUpdates: any = {};
       if (updates.firstName) supabaseUpdates.first_name = updates.firstName;
@@ -610,6 +706,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshSession = async (): Promise<boolean> => {
     try {
       console.log('AuthContext: Refreshing session...');
+      if (useBackend) {
+        const token = localStorage.getItem('elitebet_backend_token');
+        if (!token) return false;
+        try {
+          const r = await BackendAuthService.me(token);
+          const convertedUser: User = {
+            id: r.user.userId,
+            email: r.user.email,
+            firstName: r.user.firstName || r.user.email.split('@')[0] || 'User',
+            lastName: r.user.lastName || '',
+            balance: r.user.balance,
+            currency: 'INR',
+            isVerified: true,
+            createdAt: new Date(),
+            lastLogin: new Date()
+          };
+          setUser(convertedUser);
+          setIsAuthenticated(true);
+          return true;
+        } catch {
+          return false;
+        }
+      }
       
       const { data: { session }, error } = await supabase.auth.refreshSession();
       

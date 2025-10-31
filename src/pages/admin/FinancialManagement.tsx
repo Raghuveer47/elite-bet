@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  DollarSign, TrendingUp, TrendingDown, 
+  DollarSign, TrendingUp, 
   CheckCircle, XCircle, Clock, AlertTriangle, Eye, 
   Search, RefreshCw, Database, Copy, Check
 } from 'lucide-react';
@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 export function FinancialManagement() {
   const { 
     pendingPayments,
+    transactions,
     approveDeposit,
     rejectDeposit,
     refreshLocalTransactions,
@@ -27,22 +28,59 @@ export function FinancialManagement() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
-  // Enhanced filtering
-  const filteredPayments = pendingPayments.filter(payment => {
-    const matchesStatus = filterStatus === 'all' || payment.status === filterStatus;
+  // Get all payment transactions (deposits and withdrawals)
+  const allPaymentTransactions = transactions.filter(t => 
+    t.type === 'deposit' || t.type === 'withdrawal'
+  );
+
+  // Enhanced filtering - now works on all transactions
+  const displayedTransactions = (showAllTransactions ? allPaymentTransactions : pendingPayments).filter(payment => {
+    // Convert status for filtering
+    let paymentStatus = 'pending';
+    
+    // Handle transaction status - check if it's a PendingPayment
+    const isPendingPayment = 'transactionId' in payment && payment.transactionId !== undefined;
+    const txStatus = payment.status;
+    
+    if (txStatus === 'completed') {
+      paymentStatus = 'approved';
+    } else if (txStatus === 'failed' || txStatus === 'rejected') {
+      paymentStatus = 'rejected';
+    } else {
+      paymentStatus = 'pending';
+    }
+    
+    const matchesStatus = filterStatus === 'all' || paymentStatus === filterStatus;
     const matchesType = filterType === 'all' || payment.type === filterType;
+    
+    const searchTarget = searchTerm.toLowerCase();
     const matchesSearch = searchTerm === '' || 
-      payment.transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.userId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (payment.customerName && payment.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (payment.email && payment.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (payment.bankTransactionId && payment.bankTransactionId.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (payment.upiId && payment.upiId.toLowerCase().includes(searchTerm.toLowerCase()));
+      payment.id?.toLowerCase().includes(searchTarget) ||
+      (isPendingPayment && payment.transactionId?.toLowerCase().includes(searchTarget)) ||
+      payment.reference?.toLowerCase().includes(searchTarget) ||
+      payment.userId?.toLowerCase().includes(searchTarget) ||
+      (isPendingPayment && payment.customerName?.toLowerCase().includes(searchTarget)) ||
+      (isPendingPayment && payment.email?.toLowerCase().includes(searchTarget)) ||
+      (isPendingPayment && payment.bankTransactionId?.toLowerCase().includes(searchTarget)) ||
+      (isPendingPayment && payment.upiId?.toLowerCase().includes(searchTarget));
     
     return matchesStatus && matchesType && matchesSearch;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(displayedTransactions.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTransactions = displayedTransactions.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus, filterType, searchTerm, showAllTransactions]);
 
   const handleApprove = async (paymentId: string) => {
     try {
@@ -139,12 +177,13 @@ export function FinancialManagement() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-slate-400 text-sm">Total Pending</p>
               <p className="text-2xl font-bold text-white">{pendingPayments.length}</p>
+              <p className="text-xs text-slate-500 mt-1">Waiting for approval</p>
             </div>
             <Clock className="w-8 h-8 text-yellow-400" />
           </div>
@@ -153,9 +192,18 @@ export function FinancialManagement() {
         <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-400 text-sm">Deposits</p>
+              <p className="text-slate-400 text-sm">Today's Deposits</p>
               <p className="text-2xl font-bold text-white">
-                {pendingPayments.filter(p => p.type === 'deposit').length}
+                {formatCurrency(
+                  transactions
+                    .filter(t => t.type === 'deposit' && 
+                                t.status === 'completed' && 
+                                new Date(t.createdAt).toDateString() === new Date().toDateString())
+                    .reduce((sum, t) => sum + t.amount, 0)
+                )}
+              </p>
+              <p className="text-xs text-green-400 mt-1">
+                Count: {transactions.filter(t => t.type === 'deposit' && t.status === 'completed' && new Date(t.createdAt).toDateString() === new Date().toDateString()).length}
               </p>
             </div>
             <TrendingUp className="w-8 h-8 text-green-400" />
@@ -165,12 +213,45 @@ export function FinancialManagement() {
         <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-400 text-sm">Withdrawals</p>
+              <p className="text-slate-400 text-sm">Total Deposits</p>
               <p className="text-2xl font-bold text-white">
-                {pendingPayments.filter(p => p.type === 'withdrawal').length}
+                {formatCurrency(
+                  transactions
+                    .filter(t => t.type === 'deposit' && t.status === 'completed')
+                    .reduce((sum, t) => sum + t.amount, 0)
+                )}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                All approved deposits
               </p>
             </div>
-            <TrendingDown className="w-8 h-8 text-red-400" />
+            <CheckCircle className="w-8 h-8 text-blue-400" />
+          </div>
+        </div>
+        
+        <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm">Rejected</p>
+              <p className="text-2xl font-bold text-white">
+                {transactions.filter(t => t.status === 'failed').length}
+              </p>
+              <p className="text-xs text-red-400 mt-1">Failed transactions</p>
+            </div>
+            <XCircle className="w-8 h-8 text-red-400" />
+          </div>
+        </div>
+        
+        <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm">Approved</p>
+              <p className="text-2xl font-bold text-white">
+                {transactions.filter(t => t.status === 'completed' && (t.type === 'deposit' || t.type === 'withdrawal')).length}
+              </p>
+              <p className="text-xs text-green-400 mt-1">Completed payments</p>
+            </div>
+            <CheckCircle className="w-8 h-8 text-green-400" />
           </div>
         </div>
         
@@ -181,15 +262,28 @@ export function FinancialManagement() {
               <p className="text-2xl font-bold text-white">
                 {formatCurrency(pendingPayments.reduce((sum, p) => sum + p.amount, 0))}
               </p>
+              <p className="text-xs text-slate-500 mt-1">Pending only</p>
             </div>
             <DollarSign className="w-8 h-8 text-blue-400" />
           </div>
         </div>
       </div>
 
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg p-4 text-xs">
+          <p className="text-blue-300 mb-2">Debug Info:</p>
+          <p className="text-blue-400">Total Transactions: {transactions.length}</p>
+          <p className="text-blue-400">Pending Payments: {pendingPayments.length}</p>
+          <p className="text-blue-400">All Payment Transactions: {allPaymentTransactions.length}</p>
+          <p className="text-blue-400">Displayed: {displayedTransactions.length}</p>
+          <p className="text-blue-400">Show All: {showAllTransactions ? 'Yes' : 'No'}</p>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
             <Input
@@ -207,7 +301,7 @@ export function FinancialManagement() {
           >
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
+            <option value="approved">✓ Approved</option>
             <option value="rejected">Rejected</option>
           </select>
           
@@ -221,10 +315,21 @@ export function FinancialManagement() {
             <option value="withdrawal">Withdrawals</option>
           </select>
           
+          <Button 
+            variant={showAllTransactions ? "primary" : "outline"} 
+            size="sm" 
+            onClick={() => setShowAllTransactions(!showAllTransactions)}
+          >
+            <Database className="w-4 h-4 mr-2" />
+            {showAllTransactions ? 'Show Pending Only' : 'Show All Transactions'}
+          </Button>
+          
           <Button variant="outline" size="sm" onClick={() => {
             setSearchTerm('');
             setFilterStatus('all');
             setFilterType('all');
+            setShowAllTransactions(false);
+            setCurrentPage(1);
           }}>
             <XCircle className="w-4 h-4 mr-2" />
             Clear Filters
@@ -232,35 +337,62 @@ export function FinancialManagement() {
         </div>
       </div>
 
-      {/* Pending Payments List */}
+      {/* Transactions List */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-        <div className="p-6 border-b border-slate-700">
-          <h2 className="text-xl font-semibold text-white">Pending Payments ({filteredPayments.length})</h2>
+        <div className="p-6 border-b border-slate-700 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-white">
+            {showAllTransactions ? 'All Transactions' : 'Pending Payments'} ({displayedTransactions.length})
+          </h2>
+          {totalPages > 1 && (
+            <div className="flex items-center space-x-2 text-sm text-slate-400">
+              <span>Page {currentPage} of {totalPages}</span>
+            </div>
+          )}
         </div>
         
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <LoadingSpinner />
-            <p className="ml-3 text-slate-400">Loading pending payments...</p>
+            <p className="ml-3 text-slate-400">Loading transactions...</p>
           </div>
-        ) : filteredPayments.length === 0 ? (
+        ) : displayedTransactions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-400">
             <Clock className="w-16 h-16 mb-4 opacity-50" />
-            <h3 className="text-lg font-semibold mb-2">No Pending Payments</h3>
-            <p className="text-sm">All payments have been processed</p>
+            <h3 className="text-lg font-semibold mb-2">No Transactions Found</h3>
+            <p className="text-sm">
+              {filterStatus !== 'all' || filterType !== 'all' || searchTerm ? 
+                'Try adjusting your filters' : 
+                showAllTransactions ? 'No transactions to display' : 'All payments have been processed'}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-slate-700">
-            {filteredPayments.map((payment) => (
+            {paginatedTransactions.map((payment) => {
+              // Determine payment status for display
+              let paymentStatus: 'pending' | 'approved' | 'rejected' = 'pending';
+              
+              // Type guard: check if payment has status
+              if ('status' in payment && payment.status) {
+                const txStatus = payment.status as string;
+                if (txStatus === 'completed') {
+                  paymentStatus = 'approved';
+                } else if (txStatus === 'failed') {
+                  paymentStatus = 'rejected';
+                } else {
+                  paymentStatus = 'pending';
+                }
+              }
+              
+              return (
               <div key={payment.id} className="p-6 hover:bg-slate-700/50 transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-3">
-                      {getStatusIcon(payment.status)}
+                      {getStatusIcon(paymentStatus)}
                       <h3 className="text-lg font-semibold text-white">
                         {payment.type === 'deposit' ? 'Deposit' : 'Withdrawal'} Request
                       </h3>
-                      {getStatusBadge(payment.status)}
+                      {getStatusBadge(paymentStatus)}
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
@@ -274,11 +406,13 @@ export function FinancialManagement() {
                       <div>
                         <p className="text-slate-400 text-sm">Transaction ID</p>
                         <div className="flex items-center space-x-2">
-                          <p className="text-white font-mono text-sm">{payment.transactionId}</p>
+                          <p className="text-white font-mono text-sm">
+                            {('transactionId' in payment ? payment.transactionId : null) || payment.id}
+                          </p>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => copyToClipboard(payment.transactionId, `txn_${payment.id}`)}
+                            onClick={() => copyToClipboard(('transactionId' in payment ? payment.transactionId : null) || payment.id, `txn_${payment.id}`)}
                             className="p-1 h-auto"
                           >
                             {copiedField === `txn_${payment.id}` ? 
@@ -292,55 +426,57 @@ export function FinancialManagement() {
                       <div>
                         <p className="text-slate-400 text-sm">Reference</p>
                         <div className="flex items-center space-x-2">
-                          <p className="text-white font-mono text-sm">{payment.reference}</p>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(payment.reference, `ref_${payment.id}`)}
-                            className="p-1 h-auto"
-                          >
-                            {copiedField === `ref_${payment.id}` ? 
-                              <Check className="w-3 h-3 text-green-400" /> : 
-                              <Copy className="w-3 h-3 text-slate-400" />
-                            }
-                          </Button>
+                          <p className="text-white font-mono text-sm">{payment.reference || 'N/A'}</p>
+                          {payment.reference && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyToClipboard(payment.reference || '', `ref_${payment.id}`)}
+                              className="p-1 h-auto"
+                            >
+                              {copiedField === `ref_${payment.id}` ? 
+                                <Check className="w-3 h-3 text-green-400" /> : 
+                                <Copy className="w-3 h-3 text-slate-400" />
+                              }
+                            </Button>
+                          )}
                         </div>
                       </div>
                       
                       <div>
                         <p className="text-slate-400 text-sm">User ID</p>
-                        <p className="text-white font-mono text-sm">{payment.userId}</p>
+                        <p className="text-white font-mono text-sm">{payment.userId || 'N/A'}</p>
                       </div>
                       
-                      {payment.customerName && (
+                      {('customerName' in payment && payment.customerName) && (
                         <div>
                           <p className="text-slate-400 text-sm">Customer Name</p>
                           <p className="text-white font-medium">{payment.customerName}</p>
                         </div>
                       )}
                       
-                      {payment.email && (
+                      {('email' in payment && payment.email) && (
                         <div>
                           <p className="text-slate-400 text-sm">Email</p>
                           <p className="text-white">{payment.email}</p>
                         </div>
                       )}
                       
-                      {payment.phoneNumber && (
+                      {('phoneNumber' in payment && payment.phoneNumber) && (
                         <div>
                           <p className="text-slate-400 text-sm">Phone</p>
                           <p className="text-white">{payment.phoneNumber}</p>
                         </div>
                       )}
                       
-                      {payment.upiId && (
+                      {('upiId' in payment && payment.upiId) && (
                         <div>
                           <p className="text-slate-400 text-sm">UPI ID</p>
                           <p className="text-white font-mono">{payment.upiId}</p>
                         </div>
                       )}
                       
-                      {payment.bankTransactionId && (
+                      {('bankTransactionId' in payment && payment.bankTransactionId) && (
                         <div>
                           <p className="text-slate-400 text-sm">Bank Transaction ID</p>
                           <p className="text-white font-mono">{payment.bankTransactionId}</p>
@@ -349,23 +485,27 @@ export function FinancialManagement() {
                       
                       <div>
                         <p className="text-slate-400 text-sm">Method</p>
-                        <p className="text-white capitalize">{payment.method}</p>
+                        <p className="text-white capitalize">
+                          {('method' in payment && payment.method) || (payment.type === 'deposit' ? 'Bank Transfer' : 'Withdrawal')}
+                        </p>
                       </div>
                       
                       <div>
                         <p className="text-slate-400 text-sm">Submitted</p>
-                        <p className="text-white">{formatDate(payment.submittedAt)}</p>
+                        <p className="text-white">
+                          {formatDate(('submittedAt' in payment ? payment.submittedAt : payment.createdAt) || new Date())}
+                        </p>
                       </div>
                     </div>
                     
-                    {payment.paymentProofUrl && (
+                    {('paymentProofUrl' in payment && payment.paymentProofUrl) && (
                       <div className="mt-4">
                         <p className="text-slate-400 text-sm mb-2">Payment Proof</p>
                         <div className="flex items-center space-x-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleImageClick(payment.paymentProofUrl)}
+                            onClick={() => handleImageClick(payment.paymentProofUrl as string)}
                           >
                             <Eye className="w-4 h-4 mr-2" />
                             View Screenshot
@@ -373,7 +513,7 @@ export function FinancialManagement() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => copyToClipboard(payment.paymentProofUrl, `proof_${payment.id}`)}
+                            onClick={() => copyToClipboard(payment.paymentProofUrl as string, `proof_${payment.id}`)}
                           >
                             <Copy className="w-4 h-4 mr-2" />
                             Copy URL
@@ -382,7 +522,7 @@ export function FinancialManagement() {
                       </div>
                     )}
                     
-                    {payment.bankDetails && (
+                    {('bankDetails' in payment && payment.bankDetails) && (
                       <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/30 rounded-lg">
                         <p className="text-blue-300 text-sm font-medium mb-2">Bank Details</p>
                         <div className="grid grid-cols-2 gap-2 text-xs">
@@ -409,7 +549,7 @@ export function FinancialManagement() {
                     )}
                   </div>
                   
-                  {payment.status === 'pending' && (
+                  {paymentStatus === 'pending' && (
                     <div className="flex flex-col space-y-2 ml-6">
                       <Button
                         onClick={() => handleApprove(payment.id)}
@@ -439,7 +579,61 @@ export function FinancialManagement() {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
+          </div>
+        )}
+        
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="p-6 border-t border-slate-700 flex items-center justify-between">
+            <div className="text-sm text-slate-400">
+              Showing {startIndex + 1} to {Math.min(endIndex, displayedTransactions.length)} of {displayedTransactions.length} transactions
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "primary" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className="min-w-[2.5rem]"
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         )}
       </div>

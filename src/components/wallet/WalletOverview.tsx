@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Wallet, TrendingUp, TrendingDown, Activity, AlertTriangle, Shield, RefreshCw, Trophy } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Link } from 'react-router-dom';
@@ -9,6 +9,15 @@ import { formatCurrency } from '../../lib/utils';
 export function WalletOverview() {
   const { user, isAuthenticated } = useAuth();
   const { accounts, stats, limits, refreshWallet, isLoading, getBalance, getAvailableBalance } = useWallet();
+
+  // Always refresh wallet on page mount
+  useEffect(() => {
+    refreshWallet();
+    // Also refresh whenever a bet/win updates wallet
+    const onWalletUpdated = () => refreshWallet();
+    window.addEventListener('wallet_updated', onWalletUpdated);
+    return () => window.removeEventListener('wallet_updated', onWalletUpdated);
+  }, []);
 
   if (!isAuthenticated || !user) {
     return (
@@ -24,8 +33,8 @@ export function WalletOverview() {
 
   const currentBalance = getAvailableBalance(); // Use the same balance for consistency
   const availableBalance = getAvailableBalance();
-  const mainAccount = accounts.find(acc => acc.accountType === 'main' && acc.currency === 'USD');
-  const bonusAccount = accounts.find(acc => acc.accountType === 'bonus' && acc.currency === 'USD');
+  const mainAccount = accounts.find(acc => acc.accountType === 'main' && acc.currency === 'INR');
+  const bonusAccount = accounts.find(acc => acc.accountType === 'bonus' && acc.currency === 'INR');
 
   const walletStats = [
     { 
@@ -60,7 +69,7 @@ export function WalletOverview() {
 
   const accountInfo = [
     { label: 'Account Status', value: user?.isVerified ? 'Verified' : 'Unverified', verified: user?.isVerified },
-    { label: 'Currency', value: user?.currency || 'USD' },
+    { label: 'Currency', value: user?.currency || 'INR' },
     { label: 'Member Since', value: new Date().toLocaleDateString() },
     { label: 'Last Activity', value: 'Just now' }
   ];

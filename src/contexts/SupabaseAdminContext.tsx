@@ -116,11 +116,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     console.log('AdminContext: Using Supabase directly - no localStorage fallback');
   }, []);
 
-  // Periodic refresh to check for new Supabase transactions
+  // Periodic refresh
   useEffect(() => {
     const interval = setInterval(() => {
-      console.log('AdminContext: Periodic refresh of Supabase data');
-      loadAllData(); // Refresh from Supabase directly
+      console.log('AdminContext: Periodic refresh of admin data');
+      loadAllData();
     }, 10000); // Check every 10 seconds
 
     return () => clearInterval(interval);
@@ -257,64 +257,65 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const loadAllData = async () => {
     try {
-      console.log('AdminContext: Loading real data from Supabase...');
-      
-      // Try to load real data from Supabase with more detailed error logging
-      console.log('AdminContext: Attempting to load real data from Supabase...');
-      
-      const [
-        usersResult,
-        transactionsResult,
-        statsResult,
-        auditLogsResult
-      ] = await Promise.all([
-        SupabaseAuthService.getAllUsers().catch(err => {
-          console.error('AdminContext: Failed to load users:', err);
-          return { success: false, users: [], error: err };
-        }),
-        SupabaseAuthService.getAllTransactions().catch(err => {
-          console.error('AdminContext: Failed to load transactions:', err);
-          return { success: false, transactions: [], error: err };
-        }),
-        SupabaseAuthService.getSystemStats().catch(err => {
-          console.error('AdminContext: Failed to load stats:', err);
-          return { success: false, stats: null, error: err };
-        }),
-        SupabaseAuthService.getAuditLogs().catch(err => {
-          console.error('AdminContext: Failed to load audit logs:', err);
-          return { success: false, logs: [], error: err };
-        })
-      ]);
+      console.log('AdminContext: Loading admin data from backend...');
 
-      // Load users
-      if (usersResult.success && usersResult.users && usersResult.users.length > 0) {
-        const convertedUsers: UserManagement[] = usersResult.users.map(user => ({
-          id: user.id,
-          email: user.email,
-          firstName: user.first_name,
-          lastName: user.last_name,
-          balance: user.balance,
-          status: user.status as 'active' | 'suspended' | 'closed',
-          isVerified: user.is_verified,
-          registrationDate: new Date(user.created_at),
-          lastLogin: new Date(user.last_login),
-          totalDeposited: user.total_deposited || 0,
-          totalWithdrawn: user.total_withdrawn || 0,
-          totalWagered: user.total_wagered || 0,
-          activeBets: user.active_bets || 0,
-          country: user.country || 'Unknown',
-          riskLevel: user.risk_level as 'low' | 'medium' | 'high' || 'low'
-        }));
-        setUsers(convertedUsers);
-        console.log('AdminContext: Loaded', convertedUsers.length, 'real users');
-      } else {
-        console.log('AdminContext: No real users found, using mock data');
-        console.log('AdminContext: Users result:', usersResult);
-        if (usersResult.error) {
-          console.error('AdminContext: Users error details:', usersResult.error);
+      const useBackend = (import.meta as any).env.VITE_USE_BACKEND_AUTH === 'true';
+      let backendDeposits: any[] = [];
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+        const backendResponse = await fetch(`${backendUrl}/admin/pending-deposits`);
+        if (backendResponse.ok) {
+          const backendData = await backendResponse.json();
+          if (backendData.success && backendData.deposits) {
+            backendDeposits = backendData.deposits;
+            console.log('AdminContext: Loaded', backendDeposits.length, 'pending deposits from MongoDB backend');
+          }
         }
+      } catch (backendError) {
+        console.log('AdminContext: MongoDB backend not available:', backendError);
+      }
+
+      // Load users from MongoDB backend directly
+      let loadedUsers: UserManagement[] = [];
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      
+      try {
+        // Fetch all users from MongoDB backend
+        const usersResponse = await fetch(`${backendUrl}/admin/users`);
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          if (usersData.success && usersData.users && usersData.users.length > 0) {
+            loadedUsers = usersData.users.map((user: any) => ({
+              id: user.id,
+              email: user.email || '',
+              firstName: user.firstName || '',
+              lastName: user.lastName || '',
+              balance: user.balance || 0,
+              status: (user.status || 'active') as 'active' | 'suspended' | 'closed',
+              isVerified: user.isVerified || true,
+              registrationDate: new Date(user.createdAt),
+              lastLogin: new Date(user.lastLogin || user.createdAt),
+              totalDeposited: user.totalDeposited || 0,
+              totalWithdrawn: user.totalWithdrawn || 0,
+              totalWagered: user.totalWagered || 0,
+              activeBets: 0,
+              country: user.country || 'Unknown',
+              riskLevel: (user.riskLevel || 'low') as 'low' | 'medium' | 'high'
+            }));
+            
+            setUsers(loadedUsers);
+            console.log('AdminContext: Loaded', loadedUsers.length, 'users from MongoDB with balances');
+            console.log('Total platform balance:', loadedUsers.reduce((sum, u) => sum + u.balance, 0));
+          }
+        }
+      } catch (err) {
+        console.error('AdminContext: Error fetching users from MongoDB:', err);
+      }
+      
+      if (loadedUsers.length === 0) {
+        console.log('AdminContext: No users loaded from MongoDB, using fallback');
         // Fallback to mock data if no real users
-        const mockUsers: UserManagement[] = [
+        loadedUsers = [
           {
             id: 'user_1',
             email: 'demo@example.com',
@@ -333,51 +334,47 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
             riskLevel: 'low'
           }
         ];
-        setUsers(mockUsers);
+        setUsers(loadedUsers);
       }
 
-      // Load transactions
+      // Load transactions from MongoDB backend
       let allTransactions: Transaction[] = [];
       
-      if (transactionsResult.success && transactionsResult.transactions && transactionsResult.transactions.length > 0) {
-        const convertedTransactions: Transaction[] = transactionsResult.transactions.map(tx => ({
-          id: tx.id,
-          userId: tx.user_id,
-          type: tx.type as 'deposit' | 'withdrawal' | 'bet' | 'win' | 'refund' | 'fee',
-          amount: tx.amount,
-          currency: tx.currency,
-          status: tx.status as 'pending' | 'completed' | 'failed' | 'cancelled',
-          description: tx.description,
-          reference: tx.reference,
-          createdAt: new Date(tx.created_at),
-          completedAt: tx.completed_at ? new Date(tx.completed_at) : undefined,
-          updatedAt: new Date(tx.updated_at),
-          metadata: tx.metadata
-        }));
-        allTransactions = convertedTransactions;
-        console.log('AdminContext: Loaded', convertedTransactions.length, 'real transactions from Supabase');
-      } else {
-        console.log('AdminContext: No real transactions found from Supabase');
+      try {
+        // Fetch all transactions from MongoDB backend
+        const transactionsResponse = await fetch(`${backendUrl}/admin/transactions`);
+        if (transactionsResponse.ok) {
+          const txData = await transactionsResponse.json();
+          if (txData.success && txData.transactions && txData.transactions.length > 0) {
+            allTransactions = txData.transactions.map((tx: any) => ({
+              id: tx.id,
+              userId: tx.userId,
+              type: tx.type as 'deposit' | 'withdrawal' | 'bet' | 'win' | 'refund' | 'fee',
+              amount: tx.amount,
+              currency: tx.currency || 'INR',
+              status: tx.status as 'pending' | 'completed' | 'failed' | 'cancelled',
+              description: tx.description || '',
+              reference: tx.reference || '',
+              createdAt: new Date(tx.createdAt),
+              completedAt: tx.completedAt ? new Date(tx.completedAt) : undefined,
+              updatedAt: new Date(tx.updatedAt),
+              metadata: tx.metadata || {}
+            }));
+            console.log('AdminContext: Loaded', allTransactions.length, 'transactions from MongoDB backend');
+          }
+        }
+      } catch (err) {
+        console.error('AdminContext: Error fetching transactions from MongoDB:', err);
       }
       
-      // Also load locally stored transactions as fallback
-      const localTransactions = getLocalTransactions();
-      console.log('AdminContext: Found', localTransactions.length, 'local transactions');
+      // Do not fallback to Supabase when backend auth is enabled
       
-      // Merge Supabase and local transactions, avoiding duplicates
-      const mergedTransactions = [...allTransactions];
-      localTransactions.forEach(localTx => {
-        const exists = mergedTransactions.some(tx => tx.id === localTx.id);
-        if (!exists) {
-          mergedTransactions.push(localTx);
-        }
-      });
-      
-      console.log('AdminContext: Total transactions (Supabase + Local):', mergedTransactions.length);
-      setTransactions(mergedTransactions);
+      // Use MongoDB transactions directly
+      console.log('AdminContext: Total transactions from MongoDB:', allTransactions.length);
+      setTransactions(allTransactions);
       
       // Extract pending payments from all transactions
-      const pendingPayments: PendingPayment[] = mergedTransactions
+      const pendingPayments: PendingPayment[] = allTransactions
         .filter(tx => (tx.type === 'deposit' || tx.type === 'withdrawal') && tx.status === 'pending')
         .map(tx => ({
           id: tx.id,
@@ -387,7 +384,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           currency: tx.currency,
           method: tx.metadata?.method || 'bank_transfer',
           transactionId: tx.id,
-          paymentProofUrl: tx.metadata?.paymentProof || '',
+          paymentProofUrl: tx.metadata?.paymentProofUrl || tx.metadata?.paymentProof || '',
           status: 'pending' as const,
           submittedAt: tx.createdAt,
           reference: tx.reference,
@@ -401,75 +398,78 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           metadata: tx.metadata
         }));
       setPendingPayments(pendingPayments);
-      console.log('AdminContext: Total transactions loaded:', mergedTransactions.length, 'Pending payments:', pendingPayments.length);
+      console.log('AdminContext: Total transactions loaded:', allTransactions.length, 'Pending payments:', pendingPayments.length);
 
-      // Load system stats
-      if (statsResult.success && statsResult.stats) {
-        setSystemStats(statsResult.stats);
-        console.log('AdminContext: Loaded real system stats');
-      } else {
-        console.log('AdminContext: Using mock system stats');
-        // Fallback to mock stats
-        const mockSystemStats: SystemStats = {
-          totalUsers: users.length,
-          activeUsers: users.filter(u => u.status === 'active').length,
-          totalRevenue: transactions.reduce((sum, tx) => sum + (tx.type === 'deposit' ? tx.amount : 0), 0),
-          platformRevenue: transactions.reduce((sum, tx) => sum + (tx.type === 'bet' ? tx.amount * 0.05 : 0), 0),
-          totalBets: transactions.filter(tx => tx.type === 'bet').reduce((sum, tx) => sum + tx.amount, 0),
-          totalPayouts: transactions.filter(tx => tx.type === 'win').reduce((sum, tx) => sum + tx.amount, 0),
-          pendingWithdrawals: transactions.filter(tx => tx.type === 'withdrawal' && tx.status === 'pending').reduce((sum, tx) => sum + tx.amount, 0),
-          averageBetSize: 25.00,
-          houseEdge: 0.05,
-          monthlyActiveUsers: users.length,
-          conversionRate: 0.85,
-          churnRate: 0.05,
-          averageSessionDuration: 1800,
-          totalSessions: 50,
-          bounceRate: 0.15,
-          revenuePerUser: 50.00,
-          lifetimeValue: 200.00,
-          acquisitionCost: 25.00,
-          retentionRate: 0.90,
-          engagementScore: 0.75
-        };
-        setSystemStats(mockSystemStats);
-      }
+      // Calculate REAL system stats from allTransactions (MongoDB + Supabase)
+      console.log('AdminContext: Calculating REAL system stats from', allTransactions.length, 'transactions');
+      
+      // Calculate today's amounts
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const todayDeposits = allTransactions.filter(tx => 
+        tx.type === 'deposit' && 
+        tx.status === 'completed' && 
+        new Date(tx.createdAt) >= today
+      ).reduce((sum, tx) => sum + tx.amount, 0);
+      
+      const todayWithdrawals = allTransactions.filter(tx => 
+        tx.type === 'withdrawal' && 
+        tx.status === 'completed' && 
+        new Date(tx.createdAt) >= today
+      ).reduce((sum, tx) => sum + tx.amount, 0);
+      
+      // Calculate totals
+      const totalDeposits = allTransactions
+        .filter(tx => tx.type === 'deposit' && tx.status === 'completed')
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      
+      const totalWithdrawals = allTransactions
+        .filter(tx => tx.type === 'withdrawal' && tx.status === 'completed')
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      
+      const totalBets = allTransactions
+        .filter(tx => tx.type === 'bet' && tx.status === 'completed')
+        .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+      
+      const totalWinnings = allTransactions
+        .filter(tx => tx.type === 'win' && tx.status === 'completed')
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      
+      // Platform revenue = sum of all user wallet balances (total money held by platform)
+      // Use loadedUsers array which has the MongoDB balances
+      const platformRevenue = loadedUsers.reduce((sum, u) => sum + (u.balance || 0), 0);
+      
+      console.log('AdminContext: Platform revenue calculated from', loadedUsers.length, 'users: ₹' + platformRevenue);
+      
+      const pendingDepositsCount = allTransactions.filter(tx => 
+        tx.type === 'deposit' && tx.status === 'pending'
+      ).length;
+      
+      const pendingWithdrawalsCount = allTransactions.filter(tx => 
+        tx.type === 'withdrawal' && tx.status === 'pending'
+      ).length;
+      
+      const realSystemStats: SystemStats = {
+        totalUsers: loadedUsers.length,
+        activeUsers: loadedUsers.filter(u => u.status === 'active').length,
+        totalDeposits,
+        totalWithdrawals,
+        totalBets,
+        totalWinnings,
+        platformRevenue, // Now calculated from user wallet balances
+        pendingWithdrawals: pendingWithdrawalsCount,
+        pendingVerifications: 0,
+        systemHealth: 'healthy' as const
+      };
+      
+      setSystemStats(realSystemStats);
+      console.log('AdminContext: Calculated REAL stats:', realSystemStats);
+      console.log("Today's deposits:", todayDeposits);
+      console.log("Today's withdrawals:", todayWithdrawals);
 
-      // Load audit logs
-      if (auditLogsResult.success && auditLogsResult.logs && auditLogsResult.logs.length > 0) {
-        const convertedLogs: AuditLog[] = auditLogsResult.logs.map(log => ({
-          id: log.id,
-          userId: log.user_id,
-          adminId: log.admin_id,
-          action: log.action,
-          resourceType: log.resource_type,
-          resourceId: log.resource_id,
-          details: log.details,
-          ipAddress: log.ip_address,
-          userAgent: log.user_agent,
-          createdAt: new Date(log.created_at)
-        }));
-        setAuditLogs(convertedLogs);
-        console.log('AdminContext: Loaded', convertedLogs.length, 'real audit logs');
-      } else {
-        console.log('AdminContext: Using mock audit logs');
-        // Fallback to mock audit logs
-        const mockAuditLogs: AuditLog[] = [
-          {
-            id: 'audit_1',
-            userId: 'user_1',
-            adminId: 'admin_1',
-            action: 'user_login',
-            resourceType: 'user',
-            resourceId: 'user_1',
-            details: { ip: '192.168.1.1' },
-            ipAddress: '192.168.1.1',
-            userAgent: 'Mozilla/5.0...',
-            createdAt: new Date()
-          }
-        ];
-        setAuditLogs(mockAuditLogs);
-      }
+      // Audit logs not yet implemented in backend; keep empty for now
+      setAuditLogs([]);
 
       console.log('AdminContext: Data loading completed');
     } catch (error) {
@@ -584,19 +584,21 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const updateUserBalance = async (userId: string, balance: number) => {
     try {
       console.log('AdminContext: Updating user balance:', userId, balance);
-      
-      const result = await SupabaseAuthService.updateUserBalance(userId, balance);
-      
-      if (result.success) {
-        setUsers(prev => prev.map(user => 
-          user.id === userId ? { ...user, balance } : user
-        ));
-        
-        toast.success('User balance updated successfully');
-        console.log('AdminContext: User balance updated successfully');
-      } else {
-        throw new Error(result.message || 'Failed to update user balance');
-      }
+      // Backend balance adjustment uses delta amount
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      const current = users.find(u => u.id === userId)?.balance || 0;
+      const delta = balance - current;
+      const resp = await fetch(`${backendUrl}/balance/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, amount: delta, reason: 'Admin balance update' })
+      });
+      if (!resp.ok) throw new Error('Backend balance update failed');
+
+      setUsers(prev => prev.map(user => 
+        user.id === userId ? { ...user, balance } : user
+      ));
+      toast.success('User balance updated successfully');
     } catch (error: any) {
       console.error('AdminContext: Update user balance error:', error);
       toast.error('Failed to update user balance');
@@ -632,34 +634,23 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const approveWithdrawal = async (transactionId: string) => {
     try {
-      console.log('AdminContext: Approving withdrawal:', transactionId);
-      
-      // Update transaction status
-      const { data, error } = await supabase
-        .from('transactions')
-        .update({ 
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', transactionId)
-        .select()
-        .single();
+      console.log('AdminContext: Approving withdrawal (backend):', transactionId);
 
-      if (error) throw error;
+      const tx = transactions.find(t => t.id === transactionId);
+      if (!tx) throw new Error('Transaction not found');
 
-      // Update pending payments
-      setPendingPayments(prev => prev.filter(payment => payment.id !== transactionId));
-      
-      // Update transactions
-      setTransactions(prev => prev.map(tx => 
-        tx.id === transactionId 
-          ? { ...tx, status: 'completed', completedAt: new Date() }
-          : tx
-      ));
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      const resp = await fetch(`${backendUrl}/admin/approve-withdrawal/${transactionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: Math.abs(tx.amount), userId: tx.userId })
+      });
+      if (!resp.ok) throw new Error('Backend approval failed');
 
-      toast.success('Withdrawal approved successfully');
-      console.log('AdminContext: Withdrawal approved successfully');
+      // Update local state
+      setTransactions(prev => prev.map(t => t.id === transactionId ? { ...t, status: 'completed', completedAt: new Date() } : t));
+      setPendingPayments(prev => prev.filter(p => p.id !== transactionId));
+      toast.success('Withdrawal approved');
     } catch (error: any) {
       console.error('AdminContext: Approve withdrawal error:', error);
       toast.error('Failed to approve withdrawal');
@@ -669,35 +660,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const rejectWithdrawal = async (transactionId: string, reason: string) => {
     try {
-      console.log('AdminContext: Rejecting withdrawal:', transactionId, reason);
-      
-      // Update transaction status
-      const { data, error } = await supabase
-        .from('transactions')
-        .update({ 
-          status: 'failed',
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          metadata: { rejection_reason: reason }
-        })
-        .eq('id', transactionId)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Update pending payments
+      console.log('AdminContext: Rejecting withdrawal (backend):', transactionId, reason);
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      const resp = await fetch(`${backendUrl}/admin/reject-withdrawal/${transactionId}`, { method: 'POST' });
+      if (!resp.ok) throw new Error('Backend rejection failed');
       setPendingPayments(prev => prev.filter(payment => payment.id !== transactionId));
-      
-      // Update transactions
-      setTransactions(prev => prev.map(tx => 
-        tx.id === transactionId 
-          ? { ...tx, status: 'failed', completedAt: new Date() }
-          : tx
-      ));
-
-      toast.success('Withdrawal rejected successfully');
-      console.log('AdminContext: Withdrawal rejected successfully');
+      setTransactions(prev => prev.map(tx => tx.id === transactionId ? { ...tx, status: 'failed', completedAt: new Date() } : tx));
+      toast.success('Withdrawal rejected');
     } catch (error: any) {
       console.error('AdminContext: Reject withdrawal error:', error);
       toast.error('Failed to reject withdrawal');
@@ -715,7 +684,37 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Payment not found');
       }
 
-      // Create deposit transaction with unique reference (always unique)
+      // Try MongoDB backend first
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      try {
+        const backendResponse = await fetch(`${backendUrl}/admin/approve-deposit/${paymentId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: payment.amount,
+            userId: payment.userId
+          })
+        });
+        
+        if (backendResponse.ok) {
+          const backendResult = await backendResponse.json();
+          console.log('AdminContext: Backend approved successfully:', backendResult);
+          
+          // Update pending payments
+          setPendingPayments(prev => prev.filter(p => p.id !== paymentId));
+          toast('Deposit approved', { 
+            icon: '✅',
+            position: 'bottom-right',
+            duration: 2000
+          });
+          await loadAllData(); // Refresh data
+          return;
+        }
+      } catch (backendError) {
+        console.log('AdminContext: Backend approval failed, trying Supabase:', backendError);
+      }
+
+      // Fallback to Supabase
       const approvalReference = `APPROVED_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${paymentId}`;
       const transactionData = {
         user_id: payment.userId,
@@ -749,7 +748,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         
         // Update pending payments
         setPendingPayments(prev => prev.filter(p => p.id !== paymentId));
-        toast.success('Deposit approved (stored locally - Supabase unavailable)');
+        toast('Deposit approved', { 
+          icon: '✅',
+          position: 'bottom-right',
+          duration: 2000
+        });
         return;
       }
 
@@ -799,7 +802,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         { status: 'completed', approvedBy: adminUser?.id }
       );
 
-      toast.success('Deposit approved successfully!');
+      toast('Deposit approved', { 
+        icon: '✅',
+        position: 'bottom-right',
+        duration: 2000
+      });
     } catch (error) {
       console.error('AdminContext: Failed to approve deposit:', error);
       toast.error('Failed to approve deposit');
@@ -816,68 +823,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       if (!payment) {
         throw new Error('Payment not found');
       }
+      // Backend: mark deposit as failed
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      const resp = await fetch(`${backendUrl}/admin/reject-deposit/${paymentId}`, { method: 'POST' });
+      if (!resp.ok) throw new Error('Backend rejection failed');
 
-      // Create failed transaction record
-      const transactionData = {
-        user_id: payment.userId,
-        type: 'deposit',
-        amount: payment.amount,
-        currency: payment.currency,
-        status: 'failed',
-        description: `Deposit via ${payment.method} - Rejected by admin`,
-        reference: payment.transactionId,
-        metadata: {
-          method: payment.method,
-          transactionId: payment.transactionId,
-          rejectionReason: reason,
-          rejectedBy: adminUser?.id,
-          rejectedAt: new Date().toISOString()
-        },
-        completed_at: new Date().toISOString()
-      };
-
-      const result = await SupabaseAuthService.createTransaction(transactionData);
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to create transaction');
-      }
-
-      // Update local storage to mark transaction as rejected
-      updateLocalTransactionStatus(paymentId, 'failed', {
-        rejectedBy: adminUser?.id,
-        rejectedAt: new Date().toISOString(),
-        rejectionReason: reason
-      });
-
-      // Update pending payments
       setPendingPayments(prev => prev.filter(p => p.id !== paymentId));
-      
-      // Update transactions
-      setTransactions(prev => [{
-        id: result.transaction!.id,
-        userId: result.transaction!.user_id,
-        type: result.transaction!.type,
-        status: result.transaction!.status,
-        amount: result.transaction!.amount,
-        currency: result.transaction!.currency,
-        fee: 0,
-        method: payment.method,
-        description: result.transaction!.description,
-        reference: result.transaction!.reference,
-        createdAt: new Date(result.transaction!.created_at),
-        completedAt: new Date(result.transaction!.completed_at!),
-        updatedAt: new Date(result.transaction!.updated_at),
-        metadata: result.transaction!.metadata
-      }, ...prev]);
-
-      // Log audit event
-      await SupabaseAuthService.logAuditEvent(
-        'deposit_rejected',
-        'transaction',
-        paymentId,
-        { status: 'pending' },
-        { status: 'failed', reason, rejectedBy: adminUser?.id }
-      );
-
+      setTransactions(prev => prev.map(t => t.id === paymentId ? { ...t, status: 'failed', completedAt: new Date() } : t));
       toast.success('Deposit rejected');
     } catch (error) {
       console.error('AdminContext: Failed to reject deposit:', error);

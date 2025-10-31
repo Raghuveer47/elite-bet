@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, Filter, Star, Play, TrendingUp, Zap, Crown, Gift, Target, Trophy } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Filter, Star, Play, TrendingUp, Zap, Crown, Gift, Target, Trophy, Gem } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { WalletProvider } from '../contexts/SupabaseWalletContext';
@@ -13,9 +13,9 @@ function CasinoPageContent() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const categories = [
-    { id: 'all', name: 'All Games', count: 5 },
+    { id: 'all', name: 'All Games', count: 6 },
     { id: 'slots', name: 'Slots', count: 1 },
-    { id: 'table', name: 'Table Games', count: 3 },
+    { id: 'table', name: 'Table Games', count: 4 },
     { id: 'lottery', name: 'Prize Lottery', count: 1 }
   ];
 
@@ -70,6 +70,19 @@ function CasinoPageContent() {
       featured: true,
       image: 'https://images.pexels.com/photos/1871508/pexels-photo-1871508.jpeg?auto=compress&cs=tinysrgb&w=400&h=250&fit=crop'
     },
+    
+    {
+      id: 'mines',
+      name: 'Mines',
+      provider: 'Elite Gaming',
+      category: 'table',
+      rtp: 96.0,
+      minBet: 10,
+      maxBet: 5000,
+      volatility: 'High',
+      featured: true,
+      image: 'https://images.pexels.com/photos/1023953/pexels-photo-1023953.jpeg?auto=compress&cs=tinysrgb&w=400&h=250&fit=crop'
+    },
     {
       id: 'prize-lottery',
       name: 'Prize Lottery',
@@ -101,6 +114,8 @@ function CasinoPageContent() {
       case 'premium-roulette': return Target;
       case 'professional-blackjack': return Trophy;
       case 'elite-baccarat': return Crown;
+      case 'quick-dice': return Zap;
+      case 'mines': return Gem;
       case 'prize-lottery': return Gift;
       default: return Play;
     }
@@ -112,6 +127,8 @@ function CasinoPageContent() {
       case 'premium-roulette': return 'from-red-500 via-pink-500 to-purple-500';
       case 'professional-blackjack': return 'from-green-500 via-blue-500 to-purple-500';
       case 'elite-baccarat': return 'from-purple-500 via-pink-500 to-red-500';
+      case 'quick-dice': return 'from-cyan-500 via-blue-500 to-indigo-500';
+      case 'mines': return 'from-emerald-500 via-teal-500 to-cyan-500';
       case 'prize-lottery': return 'from-pink-500 via-purple-500 to-blue-500';
       default: return 'from-blue-500 to-purple-500';
     }
@@ -200,8 +217,9 @@ function CasinoPageContent() {
                   <div className="relative p-4 sm:p-6 lg:p-8">
                     {/* Game Icon */}
                     <div className="text-center mb-4 sm:mb-6">
-                      <div className={`w-12 h-12 sm:w-16 lg:w-20 bg-gradient-to-br ${gradient} rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-2xl animate-pulse`}>
-                        <GameIcon className="w-6 h-6 sm:w-8 lg:w-10 text-white" />
+                      <div className={`$${''}`}></div>
+                      <div className={`${game.id==='mines' ? 'w-16 h-16 sm:w-20 lg:w-24' : 'w-12 h-12 sm:w-16 lg:w-20'} bg-gradient-to-br ${gradient} rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-2xl animate-pulse`}>
+                        <GameIcon className={`${game.id==='mines' ? 'w-10 h-10 sm:w-12 lg:w-14' : 'w-6 h-6 sm:w-8 lg:w-10'} text-white`} />
                       </div>
                       <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-white mb-2">{game.name}</h3>
                       <p className="text-sm sm:text-base lg:text-lg text-slate-400">{game.provider}</p>

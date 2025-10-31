@@ -53,6 +53,14 @@ export default function Home() {
         
         <div className="relative container mx-auto px-4 py-20">
           <div className="text-center max-w-4xl mx-auto">
+            {/* Logo */}
+            <div className="mb-8 flex justify-center">
+              <img 
+                src="https://res.cloudinary.com/dy9zlgjh6/image/upload/v1761390123/Gemini_Generated_Image_3yxv2g3yxv2g3yxv_bcp5da.png" 
+                alt="Spinzos Logo" 
+                className="h-32 w-32 md:h-40 md:w-40 object-contain"
+              />
+            </div>
             <h1 className="text-5xl md:text-7xl font-bold mb-6">
               <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-green-400 bg-clip-text text-transparent">
                 Spinzos

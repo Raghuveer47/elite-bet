@@ -1,13 +1,44 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const useSupabaseOnly = (import.meta as any).env?.VITE_SUPABASE_ONLY === 'true'
+const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL
+const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check your .env file.')
-}
+let supabase: any;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+if (!useSupabaseOnly && (!supabaseUrl || !supabaseAnonKey)) {
+  // Minimal mock used by contexts when backend auth is enabled
+  supabase = {
+    auth: {
+      getSession: async () => ({ data: { session: null }, error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+      refreshSession: async () => ({ data: {}, error: null }),
+      getUser: async () => ({ data: { user: null }, error: null })
+    },
+    from: (_table: string) => {
+      const chain: any = {
+        _data: [],
+        select: function() { return this; },
+        insert: function() { return this; },
+        update: function() { return this; },
+        delete: function() { return this; },
+        eq: function() { return this; },
+        order: function() { return this; },
+        limit: function() { return this; },
+        range: function() { return this; },
+        single: function() { return this; },
+        then: function(resolve: any) { resolve({ data: [], error: null }); }
+      };
+      return chain;
+    },
+    rpc: async () => ({ data: null, error: null })
+  } as any;
+} else {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Missing Supabase environment variables. Please check your .env file.')
+  }
+
+  supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true, // Enable auto refresh for users
     persistSession: true, // Enable session persistence for users
@@ -42,6 +73,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storageKey: 'sb-auth-token'
   }
 })
+}
+
+export { supabase }
 
 // Database types
 export interface Database {

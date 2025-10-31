@@ -48,7 +48,7 @@ export function WithdrawForm() {
       setSuccess(null);
       await submitManualWithdraw({
         amount: parseFloat(amount),
-        currency: 'USD',
+        currency: 'INR',
         method: selectedMethod!.id,
         destination
       });

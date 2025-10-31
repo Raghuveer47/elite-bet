@@ -23,7 +23,7 @@ export class SessionManager {
     }
   }
 
-  static getUserSession(): AuthSession | null {
+  static async getUserSession(): Promise<AuthSession | null> {
     try {
       // Check both localStorage and sessionStorage
       let sessionData = localStorage.getItem(USER_SESSION_KEY) || sessionStorage.getItem(USER_SESSION_KEY);
@@ -31,7 +31,7 @@ export class SessionManager {
       if (!sessionData) return null;
 
       const parsed = JSON.parse(sessionData);
-      const session: AuthSession = {
+      let session: AuthSession = {
         ...parsed,
         expiresAt: new Date(parsed.expiresAt),
         user: {
@@ -45,6 +45,43 @@ export class SessionManager {
       if (new Date() > session.expiresAt) {
         this.clearUserSession();
         return null;
+      }
+
+      // ALWAYS fetch latest balance from backend on every session load
+      console.log('SessionManager: Fetching fresh balance from backend for user:', session.user.id);
+      try {
+        const backendUrl = 'http://localhost:3001/api/betting';
+        const balanceResponse = await fetch(`${backendUrl}/balance/${session.user.id}`);
+        
+        if (balanceResponse.ok) {
+          const balanceData = await balanceResponse.json();
+          if (balanceData.success && balanceData.balance !== undefined) {
+            console.log('✅ SessionManager: Got FRESH balance from backend:', balanceData.balance);
+            const oldBalance = session.user.balance;
+            session.user.balance = balanceData.balance;
+            
+            // Update the cached session with fresh balance
+            const updatedSessionData = {
+              ...parsed,
+              user: {
+                ...session.user,
+                balance: balanceData.balance
+              }
+            };
+            
+            // Save updated balance back to storage
+            const isInLocalStorage = localStorage.getItem(USER_SESSION_KEY) !== null;
+            const storage = isInLocalStorage ? localStorage : sessionStorage;
+            storage.setItem(USER_SESSION_KEY, JSON.stringify(updatedSessionData));
+            
+            console.log(`SessionManager: Updated cached balance from ${oldBalance} to ${balanceData.balance}`);
+          }
+        } else {
+          console.log('SessionManager: Backend returned status:', balanceResponse.status);
+        }
+      } catch (error) {
+        console.log('SessionManager: Could not fetch balance from backend:', error);
+        console.log('SessionManager: Using cached balance:', session.user.balance);
       }
 
       return session;
@@ -64,9 +101,9 @@ export class SessionManager {
     }
   }
 
-  static updateUserBalance(newBalance: number): void {
+  static async updateUserBalance(newBalance: number): Promise<void> {
     try {
-      const session = this.getUserSession();
+      const session = await this.getUserSession();
       if (session) {
         session.user.balance = newBalance;
         session.user.lastLogin = new Date(); // Update last activity
@@ -134,8 +171,8 @@ export class SessionManager {
   }
 
   // Session Validation
-  static isUserSessionValid(): boolean {
-    const session = this.getUserSession();
+  static async isUserSessionValid(): Promise<boolean> {
+    const session = await this.getUserSession();
     return session !== null && new Date() < session.expiresAt;
   }
 
@@ -147,7 +184,7 @@ export class SessionManager {
   // Auto-refresh tokens (for future implementation)
   static async refreshUserToken(): Promise<boolean> {
     try {
-      const session = this.getUserSession();
+      const session = await this.getUserSession();
       if (!session || !session.refreshToken) return false;
 
       // In a real app, this would call the API to refresh the token

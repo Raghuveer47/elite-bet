@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Shield, BarChart3, Users, DollarSign, Gamepad2, 
-  AlertTriangle, MessageCircle, Gift, Settings,
+  AlertTriangle, MessageCircle, Gift, Settings, Wallet,
   ChevronLeft, ChevronRight, Home, LogOut, Activity,
   TrendingUp, Bell, Clock, CheckCircle
 } from 'lucide-react';
@@ -22,6 +22,15 @@ export function AdminSidebar() {
       icon: BarChart3,
       badge: null,
       description: 'Overview & analytics'
+    },
+    { 
+      name: 'Withdrawals', 
+      href: '/admin/withdrawals', 
+      icon: Wallet,
+      badge: pendingPayments.filter(p => p.type==='withdrawal' && p.status==='pending').length > 0 ? 
+        pendingPayments.filter(p => p.type==='withdrawal' && p.status==='pending').length.toString() : null,
+      description: 'Approve or reject withdrawals',
+      urgent: pendingPayments.filter(p => p.type==='withdrawal' && p.status==='pending').length > 0
     },
     { 
       name: 'User Management', 

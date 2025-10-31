@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { WalletAccount, Transaction, PaymentMethod, DepositRequest, WithdrawRequest, WalletLimits, WalletStats, PendingPayment } from '../types/wallet';
 import { useAuth } from './SupabaseAuthContext';
 import { SupabaseAuthService } from '../services/supabaseAuthService';
 import toast from 'react-hot-toast';
+import { logger } from '../utils/logger';
 
 interface WalletContextType {
   accounts: WalletAccount[];
@@ -24,8 +25,9 @@ interface WalletContextType {
   getTransactions: (limit?: number) => Transaction[];
   refreshWallet: () => Promise<void>;
   transferFunds: (fromCurrency: string, toCurrency: string, amount: number) => Promise<void>;
-  processBet: (amount: number, gameType: string, description?: string, metadata?: any) => Promise<void>;
+  processBet: (amount: number, gameType: string, description?: string, metadata?: any) => Promise<{ betId?: string } | void>;
   processWin: (amount: number, gameType: string, description?: string, metadata?: any) => Promise<void>;
+  processLoss: (betId: string, gameType: string, metadata?: any) => Promise<void>;
   validateBalance: (amount: number) => boolean;
   getAvailableBalance: () => number;
 }
@@ -34,6 +36,7 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const { user, updateBalance } = useAuth();
+  const useBackend = (import.meta as any).env?.VITE_USE_BACKEND_AUTH === 'true';
   const [accounts, setAccounts] = useState<WalletAccount[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
@@ -52,7 +55,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       minAmount: 100,
       maxAmount: 50000,
       available: true,
-      currencies: ['USD', 'INR'],
+      currencies: ['INR', 'USD'],
       description: 'Union Bank of India - Manual verification',
       bankDetails: {
         bankName: 'Union Bank of India',
@@ -73,7 +76,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       minAmount: 50,
       maxAmount: 10000,
       available: true,
-      currencies: ['USD'],
+      currencies: ['INR', 'USD'],
       description: 'Direct bank transfer'
     },
     {
@@ -86,7 +89,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       minAmount: 10,
       maxAmount: 5000,
       available: true,
-      currencies: ['USD'],
+      currencies: ['INR', 'USD'],
       description: 'Visa, Mastercard, American Express'
     },
     {
@@ -99,7 +102,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       minAmount: 20,
       maxAmount: 50000,
       available: true,
-      currencies: ['USD'],
+      currencies: ['INR', 'USD'],
       description: 'Bitcoin, Ethereum, USDT'
     },
     {
@@ -112,7 +115,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       minAmount: 5,
       maxAmount: 2500,
       available: true,
-      currencies: ['USD'],
+      currencies: ['INR', 'USD'],
       description: 'PayPal, Skrill, Neteller'
     }
   ];
@@ -135,15 +138,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const limits = getLimits();
 
   // Load user data from Supabase
-  const loadUserData = async () => {
+  const loadUserData = useCallback(async () => {
     if (!user) {
       console.log('WalletContext: No user, skipping data load');
-      return;
-    }
-
-    // Prevent multiple simultaneous loads
-    if (isLoading) {
-      console.log('WalletContext: Already loading, skipping duplicate load');
       return;
     }
 
@@ -171,39 +168,149 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         }
       }
       
-      // Also try to fetch from Supabase
-      console.log('WalletContext: Fetching transactions for user:', user.id);
-      const transactionsResult = await SupabaseAuthService.getUserTransactions(user.id);
-      console.log('WalletContext: Transactions result:', transactionsResult);
-      
-      if (transactionsResult.success && transactionsResult.transactions) {
-        console.log('WalletContext: Found', transactionsResult.transactions.length, 'transactions from Supabase');
-        const convertedTransactions: Transaction[] = transactionsResult.transactions.map(tx => ({
-          id: tx.id,
-          userId: tx.user_id,
-          type: tx.type as 'deposit' | 'withdrawal' | 'bet' | 'win' | 'refund' | 'fee',
-          amount: tx.amount,
-          currency: tx.currency,
-          status: tx.status as 'pending' | 'completed' | 'failed' | 'cancelled',
-          fee: 0,
-          method: tx.metadata?.method || 'unknown',
-          description: tx.description,
-          reference: tx.reference,
-          createdAt: new Date(tx.created_at),
-          completedAt: tx.completed_at ? new Date(tx.completed_at) : undefined,
-          updatedAt: new Date(tx.updated_at),
-          metadata: tx.metadata
-        }));
+      // Try to fetch from MongoDB backend FIRST
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+        const backendResponse = await fetch(`${backendUrl}/transactions/${user.id}`);
         
-        // Merge localStorage and Supabase transactions
-        const mergedTransactions = [...allTransactions, ...convertedTransactions];
-        const uniqueTransactions = mergedTransactions.filter((tx, index, self) => 
-          index === self.findIndex(t => t.id === tx.id)
-        );
-        allTransactions = uniqueTransactions;
+        if (backendResponse.ok) {
+          const backendData = await backendResponse.json();
+          if (backendData.success && backendData.transactions) {
+            
+            const backendTransactions: Transaction[] = backendData.transactions.map((tx: any) => ({
+              id: tx._id || tx.id,
+              userId: tx.userId,
+              type: tx.type as 'deposit' | 'withdrawal' | 'bet' | 'win' | 'refund' | 'fee',
+              amount: tx.amount,
+              currency: tx.currency || 'INR',
+              status: tx.status as 'pending' | 'completed' | 'failed' | 'cancelled',
+              fee: 0,
+              method: tx.metadata?.method || 'unknown',
+              description: tx.description,
+              reference: tx.reference,
+              createdAt: new Date(tx.createdAt || tx.created_at),
+              completedAt: tx.completedAt ? new Date(tx.completedAt) : undefined,
+              updatedAt: new Date(tx.updatedAt || tx.updated_at),
+              metadata: tx.metadata || {}
+            }));
+            
+            // Merge backend transactions with local storage (current user only)
+            allTransactions = [
+              ...allTransactions,
+              ...backendTransactions.filter(t => t.userId === user.id)
+            ];
+          }
+        } else if (backendResponse.status === 429) {
+          console.log('WalletContext: Rate limited, skipping transaction fetch');
+        }
+
+        // Also fetch live balance from backend and sync main INR account
+        try {
+          const balResp = await fetch(`${backendUrl}/balance/${user.id}`, { headers: { 'Cache-Control': 'no-cache' }});
+          if (balResp.ok) {
+            const balData = await balResp.json();
+            if (balData && typeof balData.balance === 'number') {
+              setAccounts(prev => {
+                // ensure a main INR account exists
+                const hasMainInr = prev.some(acc => acc.currency === 'INR' && acc.accountType === 'main');
+                const updated: WalletAccount[] = hasMainInr ? prev.map(acc =>
+                  acc.currency === 'INR' && acc.accountType === 'main'
+                    ? { ...acc, balance: balData.balance, updatedAt: new Date() }
+                    : acc
+                ) : [
+                  ...prev,
+                  {
+                    id: `acc_${user.id}_inr_main`,
+                    userId: user.id,
+                    currency: 'INR',
+                    accountType: 'main',
+                    balance: balData.balance,
+                    reservedBalance: 0,
+                    isActive: true,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                  }
+                ];
+                return updated;
+              });
+            }
+          }
+        } catch (e) {
+          console.log('WalletContext: Could not fetch backend balance (non-fatal)');
+        }
+      } catch (backendError) {
+        console.log('WalletContext: MongoDB backend not available, trying Supabase:', backendError);
       }
       
-      setTransactions(allTransactions);
+      // Skip Supabase fetch when backend auth is enabled
+      if (!useBackend) {
+        try {
+          const supabasePromise = SupabaseAuthService.getUserTransactions(user.id);
+          const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(null), 2000));
+          const transactionsRaceResult = await Promise.race([supabasePromise, timeoutPromise]);
+          const transactionsResult: any = transactionsRaceResult as any;
+          if (transactionsResult && typeof transactionsResult === 'object' && 'success' in transactionsResult) {
+            if (transactionsResult.success && Array.isArray(transactionsResult.transactions)) {
+              const convertedTransactions: Transaction[] = (transactionsResult.transactions as any[]).map((tx: any) => ({
+                id: tx.id,
+                userId: tx.user_id,
+                type: tx.type as 'deposit' | 'withdrawal' | 'bet' | 'win' | 'refund' | 'fee',
+                amount: tx.amount,
+                currency: tx.currency,
+                status: tx.status as 'pending' | 'completed' | 'failed' | 'cancelled',
+                fee: 0,
+                method: tx.metadata?.method || 'unknown',
+                description: tx.description,
+                reference: tx.reference,
+                createdAt: new Date(tx.created_at),
+                completedAt: tx.completed_at ? new Date(tx.completed_at) : undefined,
+                updatedAt: new Date(tx.updated_at),
+                metadata: tx.metadata
+              }));
+              allTransactions = [...allTransactions, ...convertedTransactions];
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+      
+      // Normalize: keep only this user's transactions and remove duplicates
+      const normalizedForUser = allTransactions.filter(tx => tx && tx.userId === user.id);
+
+      // Robust de-duplication: prefer id, then reference, else a fallback composite key
+      const seen = new Set<string>();
+      const uniqueTransactions: Transaction[] = [];
+      for (const tx of normalizedForUser) {
+        const key = (tx.id && String(tx.id))
+          || (tx.reference && `ref:${tx.reference}`)
+          || `${tx.type}:${tx.amount}:${new Date(tx.createdAt).getTime()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueTransactions.push(tx);
+        }
+      }
+
+      // Sort newest first
+      uniqueTransactions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setTransactions(uniqueTransactions);
+
+      // Also refresh balance immediately to sync with backend
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      try {
+        const balResp = await fetch(`${backendUrl}/balance/${user.id}`, { headers: { 'Cache-Control': 'no-cache' } });
+        if (balResp.ok) {
+          const balData = await balResp.json();
+          if (balData.success && typeof balData.balance === 'number') {
+            setAccounts(prev => prev.map(acc =>
+              acc.currency === 'INR' && acc.accountType === 'main'
+                ? { ...acc, balance: balData.balance, updatedAt: new Date() }
+                : acc
+            ));
+            if (updateBalance) await updateBalance(balData.balance);
+          }
+        }
+      } catch {}
 
       // Extract pending payments from all transactions
       const pendingPayments: PendingPayment[] = allTransactions
@@ -226,29 +333,46 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           metadata: tx.metadata
         }));
       setPendingPayments(pendingPayments);
-      console.log('WalletContext: Transactions loaded successfully. Total:', allTransactions.length);
+      // Suppressed: console.log('WalletContext: Transactions loaded successfully. Total:', allTransactions.length);
 
-      // Initialize accounts with user's current balance
-      // For demo users, load from localStorage first, then use user.balance
-      let userBalance = user.balance;
-      if (user.email === 'demo@spinzos.com') {
-        const savedBalance = localStorage.getItem('demo_user_balance');
-        if (savedBalance) {
-          userBalance = parseFloat(savedBalance);
-          console.log('WalletContext: Using saved demo balance from localStorage:', userBalance);
-        } else {
-          userBalance = user.balance || 1000;
+      // ALWAYS fetch balance from MongoDB backend FIRST
+      // Suppressed: console.log('WalletContext: Fetching balance for user:', user.id);
+      let userBalance = 0; // Start with 0 to force backend fetch
+      
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+        // Suppressed logs to reduce console spam
+        // logger.log('WalletContext: Fetching from:', `${backendUrl}/balance/${user.id}`);
+        
+        const balanceResponse = await fetch(`${backendUrl}/balance/${user.id}`, { headers: { 'Cache-Control': 'no-cache' } });
+        
+        if (balanceResponse.ok) {
+          const balanceData = await balanceResponse.json();
+          console.log('[DEBUG] GET /balance response:', balanceData);
+          
+          if (balanceData.success && balanceData.balance !== undefined) {
+            userBalance = balanceData.balance;
+            logger.log('✅ Got balance from backend:', userBalance);
+            
+            // ALWAYS update auth context with backend balance
+            if (updateBalance) {
+              await updateBalance(userBalance);
+            }
+          }
         }
-      } else {
-        userBalance = user.balance || 100;
+      } catch (backendError) {
+        // Only log errors
+        logger.error('WalletContext: Could not fetch balance:', backendError);
+        // Fallback to user.balance only if backend completely fails
+        userBalance = user.balance || 0;
       }
       
-      console.log('WalletContext: Initializing accounts - user email:', user.email, 'final balance:', userBalance);
+      // logger.log('WalletContext: Final balance for accounts:', userBalance);
       const userAccounts: WalletAccount[] = [
         {
           id: 'main',
           userId: user.id,
-          currency: user.currency || 'USD',
+          currency: user.currency || 'INR',
           accountType: 'main',
           balance: userBalance,
           reservedBalance: 0,
@@ -258,25 +382,26 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         }
       ];
       setAccounts(userAccounts);
-      console.log('WalletContext: Accounts set with balance:', userBalance);
+      // Suppressed logs
+      // logger.log('WalletContext: Accounts set with balance:', userBalance);
 
-      console.log('WalletContext: Data loaded successfully');
+      logger.log('WalletContext: Data loaded successfully');
     } catch (error) {
-      console.error('WalletContext: Failed to load data:', error);
+      logger.error('WalletContext: Failed to load data:', error);
       setError('Failed to load wallet data');
     } finally {
-      console.log('WalletContext: Setting isLoading to false');
+      logger.log('WalletContext: Setting isLoading to false');
       setIsLoading(false);
     }
-  };
+  }, [user?.id]); // Only depend on user ID to prevent infinite loops
 
   // Initialize accounts when user changes
   useEffect(() => {
     if (user) {
-      console.log('WalletContext: User changed, loading data for:', user.id);
+      logger.log('WalletContext: User changed, loading data for:', user.id);
       loadUserData();
     } else {
-      console.log('WalletContext: No user, clearing data');
+      logger.log('WalletContext: No user, clearing data');
       // Clear all data when user logs out
       setAccounts([]);
       setTransactions([]);
@@ -284,19 +409,100 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       setIsLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, loadUserData]);
 
-  // Sync account balance with user balance whenever it changes
+  // Auto-refresh wallet data every 30 seconds (reduced frequency to prevent crashes)
   useEffect(() => {
-    if (user && accounts.length > 0) {
-      console.log('WalletContext: Syncing account balance with user balance:', user.balance);
+    if (!user) return;
+    
+    let interval: NodeJS.Timeout;
+    let isActive = true;
+    
+    const fetchBalance = async () => {
+      if (!isActive) return;
+      
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+        
+        // Fetch BOTH balance AND transactions
+        const [balanceResponse, transactionsResponse] = await Promise.all([
+          fetch(`${backendUrl}/balance/${user.id}`),
+          fetch(`${backendUrl}/transactions/${user.id}`)
+        ]);
+        
+        if (!isActive) return;
+        
+        if (balanceResponse.ok) {
+          const balanceData = await balanceResponse.json();
+          if (balanceData.success && balanceData.balance !== undefined) {
+            // Update account balance directly
+            setAccounts(prev => prev.map(acc => 
+              acc.accountType === 'main' 
+                ? { ...acc, balance: balanceData.balance, updatedAt: new Date() }
+                : acc
+            ));
+            
+            // Update auth context
+            if (updateBalance) {
+              await updateBalance(balanceData.balance);
+            }
+          }
+        }
+        
+        // Update transactions if available
+        if (transactionsResponse.ok) {
+          const transactionsData = await transactionsResponse.json();
+          if (transactionsData.success && transactionsData.transactions) {
+            const backendTransactions: Transaction[] = transactionsData.transactions.map((tx: any) => ({
+              id: tx._id || tx.id,
+              userId: tx.userId,
+              type: tx.type as 'deposit' | 'withdrawal' | 'bet' | 'win' | 'refund' | 'fee',
+              amount: tx.amount,
+              currency: tx.currency || 'INR',
+              status: tx.status as 'pending' | 'completed' | 'failed' | 'cancelled',
+              fee: 0,
+              method: tx.metadata?.method || 'unknown',
+              description: tx.description,
+              reference: tx.reference,
+              createdAt: new Date(tx.createdAt || tx.created_at),
+              completedAt: tx.completedAt ? new Date(tx.completedAt) : undefined,
+              updatedAt: new Date(tx.updatedAt || tx.updated_at),
+              metadata: tx.metadata || {}
+            }));
+            
+            // Update transactions - REPLACE ALL to avoid memory leak
+            setTransactions(backendTransactions);
+          }
+        }
+      } catch (error) {
+        // Silent fail to prevent console spam
+      }
+    };
+    
+    // Fetch immediately on mount
+    fetchBalance();
+    
+    // Then fetch every 60 seconds (reduced frequency to prevent crashes)
+    interval = setInterval(fetchBalance, 60000);
+    
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]); // Only depend on user ID to prevent infinite loops
+  
+  // Sync from auth user's balance ONLY for demo account to avoid overwriting backend value
+  useEffect(() => {
+    if (user?.email === 'demo@spinzos.com' && accounts.length > 0) {
+      console.log('WalletContext: Syncing (demo) account balance with user balance:', user.balance);
       setAccounts(prev => prev.map(acc => 
         acc.accountType === 'main' 
           ? { ...acc, balance: user.balance, updatedAt: new Date() }
           : acc
       ));
     }
-  }, [user?.balance, accounts.length]);
+  }, [user?.balance, user?.email, accounts.length]);
 
   // Safety timeout to prevent stuck loading state
   useEffect(() => {
@@ -370,7 +576,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         user_id: user.id,
         type: 'deposit' as const,
         amount: request.amount,
-        currency: request.currency || 'USD',
+        currency: request.currency || 'INR',
         status: 'completed' as const,
         description: `Deposit via ${request.method}`,
         reference: `DEP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -396,7 +602,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         userId: result.transaction.user_id || user?.id || '',
         type: result.transaction.type || 'deposit',
         amount: result.transaction.amount || 0,
-        currency: result.transaction.currency || 'USD',
+        currency: result.transaction.currency || 'INR',
         status: result.transaction.status || 'pending',
         fee: 0,
         method: result.transaction.metadata?.method || 'unknown',
@@ -442,43 +648,42 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Insufficient balance');
       }
 
-      // Create transaction in Supabase
-      const transactionData = {
-        user_id: user.id,
-        type: 'withdrawal' as const,
-        amount: request.amount,
-        currency: request.currency || 'USD',
-        status: 'pending' as const,
-        description: `Withdrawal via ${request.method}`,
-        reference: `WTH_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        metadata: {
-          method: request.method,
-          paymentMethodId: request.paymentMethodId,
-          ...request.metadata
-        }
-      };
-
-      const result = await SupabaseAuthService.createTransaction(transactionData);
-      if (!result.success || !result.transaction) {
-        throw new Error(result.message || 'Failed to create withdrawal transaction');
+      // Create pending withdrawal via backend (admin approval required)
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      const response = await fetch(`${backendUrl}/transaction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          type: 'withdrawal',
+          amount: request.amount,
+          description: `Withdrawal via ${request.method}`,
+          metadata: {
+            method: request.method,
+            paymentMethodId: request.paymentMethodId,
+            requiresAdminApproval: true,
+            ...request.metadata
+          }
+        })
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create withdrawal request');
       }
-
-      // Convert to our Transaction type
+      const backend = await response.json();
       const transaction: Transaction = {
-        id: result.transaction.id || `local_${Date.now()}`,
-        userId: result.transaction.user_id || user?.id || '',
-        type: result.transaction.type || 'deposit',
-        amount: result.transaction.amount || 0,
-        currency: result.transaction.currency || 'USD',
-        status: result.transaction.status || 'pending',
+        id: backend.transaction?.id || `wth_${Date.now()}`,
+        userId: user.id,
+        type: 'withdrawal',
+        amount: request.amount,
+        currency: request.currency || 'INR',
+        status: 'pending',
         fee: 0,
-        method: result.transaction.metadata?.method || 'unknown',
-        description: result.transaction.description || 'Manual transaction',
-        reference: result.transaction.reference || `TXN_${Date.now()}`,
-        createdAt: new Date(result.transaction.created_at || new Date().toISOString()),
-        completedAt: result.transaction.completed_at ? new Date(result.transaction.completed_at) : undefined,
-        updatedAt: new Date(result.transaction.updated_at || new Date().toISOString()),
-        metadata: result.transaction.metadata
+        method: request.method,
+        description: `Withdrawal via ${request.method}`,
+        reference: backend.transaction?.reference || '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        metadata: backend.transaction?.metadata || {}
       };
 
       // Update local state
@@ -523,10 +728,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       console.log('WalletContext: User ID:', user.id);
 
       const transactionData = {
-        user_id: user.id,
+        userId: user.id,
         type: 'deposit' as const,
         amount: request.amount,
-        currency: request.currency || 'USD',
+        currency: request.currency || 'INR',
         status: 'pending' as const,
         description: `Manual deposit request - ${request.customerName || 'Customer'}`,
         reference: request.transactionId || `MAN_DEP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -537,45 +742,114 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           email: request.email,
           upiId: request.upiId,
           bankTransactionId: request.bankTransactionId,
+          paymentProofUrl: request.base64Image,
           manual: true,
           requiresAdminApproval: true,
           ...request.metadata
         }
       };
 
-      console.log('WalletContext: Transaction data:', transactionData);
+      // Try MongoDB backend first (FAST!)
+      try {
+        console.log('WalletContext: Attempting MongoDB backend...');
+        
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+        const response = await fetch(`${backendUrl}/transaction`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: transactionData.userId,
+            type: transactionData.type,
+            amount: transactionData.amount,
+            description: transactionData.description,
+            metadata: transactionData.metadata
+          })
+        });
 
-      const result = await SupabaseAuthService.createTransaction(transactionData);
-      console.log('WalletContext: Create transaction result:', result);
+        if (response.ok) {
+          const backendResult = await response.json();
+          console.log('WalletContext: MongoDB backend success:', backendResult);
+          
+          const pendingPayment: PendingPayment = {
+            id: backendResult.transaction?.id || transactionData.reference,
+            userId: user.id,
+            type: 'deposit',
+            amount: request.amount,
+            currency: request.currency || 'INR',
+            method: request.method || 'manual_deposit',
+            transactionId: request.transactionId || '',
+            paymentProofUrl: request.base64Image || '',
+            bankDetails: request.metadata?.bankDetails,
+            status: 'pending',
+            submittedAt: new Date(),
+            reviewedAt: undefined,
+            reference: transactionData.reference,
+            description: transactionData.description,
+            metadata: transactionData.metadata
+          };
+
+          setPendingPayments(prev => [pendingPayment, ...prev]);
+          toast.success('Deposit submitted for admin review');
+          
+          return pendingPayment;
+        }
+      } catch (backendError) {
+        console.warn('WalletContext: Backend failed, trying Supabase:', backendError);
+      }
       
-    if (!result.success || !result.transaction) {
-      console.error('WalletContext: Failed to create transaction:', result.message);
-      console.log('WalletContext: Supabase failed, storing transaction locally as fallback');
+      // Fallback to Supabase
+      if (!useBackend) {
+        const result = await SupabaseAuthService.createTransaction({
+        user_id: user.id,
+        type: 'deposit',
+        amount: request.amount,
+        currency: request.currency || 'INR',
+        status: 'pending',
+        description: transactionData.description,
+        reference: transactionData.reference,
+        metadata: transactionData.metadata
+        });
+        if (!result.success || !result.transaction) {
+          // fall through to local storage
+        } else {
+          const pendingPayment: PendingPayment = {
+            id: result.transaction.id,
+            userId: result.transaction.user_id,
+            type: 'deposit',
+            amount: result.transaction.amount,
+            currency: result.transaction.currency || 'INR',
+            method: result.transaction.metadata?.method || 'unknown',
+            transactionId: request.transactionId || '',
+            paymentProofUrl: request.base64Image || '',
+            bankDetails: request.metadata?.bankDetails,
+            status: 'pending',
+            submittedAt: new Date(result.transaction.created_at),
+            reviewedAt: undefined,
+            reference: result.transaction.reference || `TXN_${Date.now()}`,
+            description: result.transaction.description || 'Manual transaction',
+            metadata: result.transaction.metadata
+          };
+          setPendingPayments(prev => [pendingPayment, ...prev]);
+          toast.success('Manual deposit submitted for review');
+          return pendingPayment;
+        }
+      }
       
-      // FALLBACK: Store transaction locally when Supabase is not accessible
+    if (useBackend) {
+      console.error('WalletContext: All systems failed, using localStorage fallback');
+      
+      // Final fallback: localStorage
       const localTransactionId = `LOCAL_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const localTransaction = {
         id: localTransactionId,
         user_id: user.id,
         type: 'deposit' as const,
         amount: request.amount,
-        currency: request.currency || 'USD',
+        currency: request.currency || 'INR',
         status: 'pending' as const,
-        description: `Manual deposit request - ${request.customerName || 'Customer'}`,
-        reference: request.transactionId || `MAN_DEP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        metadata: {
-          method: request.method || 'manual_deposit',
-          customerName: request.customerName,
-          phoneNumber: request.phoneNumber,
-          email: request.email,
-          upiId: request.upiId,
-          bankTransactionId: request.bankTransactionId,
-          manual: true,
-          requiresAdminApproval: true,
-          localFallback: true,
-          supabaseError: result.message,
-          ...request.metadata
-        },
+        description: transactionData.description,
+        reference: transactionData.reference,
+        metadata: transactionData.metadata,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -590,7 +864,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         userId: user.id,
         type: 'deposit',
         amount: request.amount,
-        currency: request.currency || 'USD',
+        currency: request.currency || 'INR',
         method: request.method || 'manual_deposit',
         transactionId: request.transactionId || '',
         paymentProofUrl: request.base64Image || '',
@@ -598,39 +872,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         status: 'pending',
         submittedAt: new Date(),
         reviewedAt: undefined,
-        reference: localTransaction.reference,
-        description: localTransaction.description,
-        metadata: localTransaction.metadata
+        reference: transactionData.reference,
+        description: transactionData.description,
+        metadata: transactionData.metadata
       };
 
       setPendingPayments(prev => [pendingPayment, ...prev]);
-      toast.success('Manual deposit submitted for review (stored locally - Supabase unavailable)');
+      toast.success('Deposit submitted (using local storage)');
       
       return pendingPayment;
     }
 
-      const pendingPayment: PendingPayment = {
-        id: result.transaction.id,
-        userId: result.transaction.user_id,
-        type: 'deposit',
-        amount: result.transaction.amount,
-        currency: result.transaction.currency || 'USD',
-        method: result.transaction.metadata?.method || 'unknown',
-        transactionId: request.transactionId || '',
-        paymentProofUrl: request.base64Image || '',
-        bankDetails: request.metadata?.bankDetails,
-        status: 'pending',
-        submittedAt: new Date(result.transaction.created_at),
-        reviewedAt: undefined,
-        reference: result.transaction.reference || `TXN_${Date.now()}`,
-        description: result.transaction.description || 'Manual transaction',
-        metadata: result.transaction.metadata
-      };
-
-      setPendingPayments(prev => [pendingPayment, ...prev]);
-      toast.success('Manual deposit submitted for review');
-      
-      return pendingPayment;
+      // Should not reach here
+      throw new Error('Deposit flow fell through');
     } catch (error: any) {
       console.error('WalletContext: Manual deposit error:', error);
       toast.error(error.message || 'Manual deposit failed');
@@ -649,7 +903,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         user_id: user.id,
         type: 'withdrawal' as const,
         amount: request.amount,
-        currency: request.currency || 'USD',
+        currency: request.currency || 'INR',
         status: 'pending' as const,
         description: `Manual withdrawal via ${request.method}`,
         reference: `MAN_WTH_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -661,33 +915,55 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
-      const result = await SupabaseAuthService.createTransaction(transactionData);
-      if (!result.success || !result.transaction) {
-        throw new Error(result.message || 'Failed to create manual withdrawal');
+      if (!useBackend) {
+        const result = await SupabaseAuthService.createTransaction(transactionData);
+        if (!result.success || !result.transaction) {
+          throw new Error(result.message || 'Failed to create manual withdrawal');
+        }
+
+        const pendingPayment: PendingPayment = {
+          id: result.transaction.id,
+          userId: result.transaction.user_id,
+          type: 'withdrawal',
+          amount: result.transaction.amount,
+          currency: result.transaction.currency || 'INR',
+          method: result.transaction.metadata?.method || 'unknown',
+          transactionId: '',
+          paymentProofUrl: '',
+          bankDetails: undefined,
+          status: 'pending',
+          submittedAt: new Date(result.transaction.created_at),
+          reviewedAt: undefined,
+          reference: result.transaction.reference || `TXN_${Date.now()}`,
+          description: result.transaction.description || 'Manual transaction',
+          metadata: result.transaction.metadata
+        };
+        setPendingPayments(prev => [pendingPayment, ...prev]);
+        toast.success('Manual withdrawal submitted for review');
+        return pendingPayment;
       }
 
-      const pendingPayment: PendingPayment = {
-        id: result.transaction.id,
-        userId: result.transaction.user_id,
+      // Backend-only path fallback to local placeholder
+      const localPending: PendingPayment = {
+        id: `LOCAL_WTH_${Date.now()}`,
+        userId: user.id,
         type: 'withdrawal',
-        amount: result.transaction.amount,
-        currency: result.transaction.currency || 'USD',
-        method: result.transaction.metadata?.method || 'unknown',
+        amount: request.amount,
+        currency: request.currency || 'INR',
+        method: request.method || 'manual_withdrawal',
         transactionId: '',
         paymentProofUrl: '',
         bankDetails: undefined,
         status: 'pending',
-        submittedAt: new Date(result.transaction.created_at),
+        submittedAt: new Date(),
         reviewedAt: undefined,
-        reference: result.transaction.reference || `TXN_${Date.now()}`,
-        description: result.transaction.description || 'Manual transaction',
-        metadata: result.transaction.metadata
+        reference: `TXN_${Date.now()}`,
+        description: transactionData.description,
+        metadata: transactionData.metadata
       };
-
-      setPendingPayments(prev => [pendingPayment, ...prev]);
+      setPendingPayments(prev => [localPending, ...prev]);
       toast.success('Manual withdrawal submitted for review');
-      
-      return pendingPayment;
+      return localPending;
     } catch (error: any) {
       console.error('WalletContext: Manual withdrawal error:', error);
       toast.error(error.message || 'Manual withdrawal failed');
@@ -697,111 +973,164 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   // Process bet
   const processBet = async (amount: number, gameType: string, description?: string, metadata?: any) => {
-    if (!user) return;
-
-    try {
-      console.log('WalletContext: Processing bet:', amount, gameType);
-
-      // Handle demo account - skip Supabase calls
-      if (user.email === 'demo@spinzos.com') {
-        console.log('WalletContext: Demo account bet - updating balance locally');
-        
-        const account = accounts.find(acc => acc.currency === (user.currency || 'USD'));
-        const currentBalance = account?.balance || 1000;
-        const newBalance = currentBalance - amount;
-        await updateBalance(newBalance);
-
-        // Update local account state
-        setAccounts(prev => prev.map(acc => 
-          acc.currency === user.currency 
-            ? { ...acc, balance: acc.balance - amount }
-            : acc
-        ));
-
-        console.log('WalletContext: Demo bet processed successfully');
-        return;
-      }
-
-      const transactionData = {
-        user_id: user.id,
-        type: 'bet' as const,
-        amount: amount,
-        currency: user.currency || 'USD',
-        status: 'completed' as const,
-        description: description || `${gameType} - Bet`,
-        reference: `BET_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        metadata: {
-          gameType,
-          ...metadata
-        }
-      };
-
-      // Update balance immediately for better UX, even if Supabase fails
-      const account = accounts.find(acc => acc.currency === (user.currency || 'USD'));
-      const currentBalance = account?.balance || (user.email === 'demo@spinzos.com' ? 1000 : 100);
-      const newBalance = Math.max(0, currentBalance - amount);
-      
-      // Update balance immediately
-      await updateBalance(newBalance);
-      setAccounts(prev => prev.map(acc => 
-        acc.currency === user.currency 
-          ? { ...acc, balance: newBalance }
-          : acc
-      ));
-
-      // Try to create transaction in Supabase (non-blocking)
-      const result = await SupabaseAuthService.createTransaction(transactionData);
-      if (result.success && result.transaction) {
-        // Update local state with transaction
-        const transaction: Transaction = {
-          id: result.transaction.id,
-          userId: result.transaction.user_id,
-          type: result.transaction.type,
-          amount: result.transaction.amount,
-          currency: result.transaction.currency || 'USD',
-          status: result.transaction.status,
-          fee: 0,
-          method: result.transaction.metadata?.method || 'unknown',
-          description: result.transaction.description || 'Manual transaction',
-          reference: result.transaction.reference || `TXN_${Date.now()}`,
-          createdAt: new Date(result.transaction.created_at || new Date().toISOString()),
-          completedAt: result.transaction.completed_at ? new Date(result.transaction.completed_at) : undefined,
-          updatedAt: new Date(result.transaction.updated_at || new Date().toISOString()),
-          metadata: result.transaction.metadata
-        };
-
-        setTransactions(prev => {
-          const updated = [transaction, ...prev];
-          saveTransactionsToLocalStorage(updated);
-          return updated;
-        });
-      } else {
-        // If Supabase fails, create local transaction
-        console.log('WalletContext: Supabase insert failed, creating local transaction');
-        const localTransaction: Transaction = {
-          id: transactionData.reference,
-          userId: user.id,
-          type: 'bet',
-          amount: transactionData.amount,
-          currency: transactionData.currency || 'USD',
-          status: 'completed',
-          fee: 0,
-          method: 'game_bet',
-          description: transactionData.description,
-          reference: transactionData.reference,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          metadata: { ...transactionData.metadata, localFallback: true }
-        };
-        setTransactions(prev => {
-          const updated = [localTransaction, ...prev];
-          saveTransactionsToLocalStorage(updated);
-          return updated;
-        });
-      }
-    } catch (error) {
-      console.error('WalletContext: Process bet error:', error);
+    if (!user) {
+      console.error('WalletContext: No user found');
+      return { betId: undefined };
     }
+
+    console.log('🎰 WalletContext: Processing bet for user:', user.email, 'Amount:', amount);
+    
+    // Get current balance
+    const currency = user.currency || 'USD';
+    const currentBalance = getBalance(currency);
+    console.log('💰 Current balance:', currentBalance, 'Currency:', currency);
+    
+    // Check if sufficient balance
+    if (currentBalance < amount) {
+      console.error('❌ Insufficient balance!');
+      return { betId: undefined };
+    }
+    
+    // Calculate new balance
+    const newBalance = currentBalance - amount;
+    console.log('📉 New balance after bet:', newBalance);
+    
+    // Create transaction ref
+    const transactionRef = `BET_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Update balance immediately (LOCAL) - instant UX
+    try {
+      await updateBalance(newBalance);
+      console.log('✅ Balance updated locally');
+    } catch (error) {
+      console.error('❌ Failed to update balance:', error);
+    }
+    
+    // Update accounts state
+    setAccounts(prev => prev.map(acc =>
+      acc.currency === currency
+        ? { ...acc, balance: newBalance }
+        : acc
+    ));
+    
+    // Create transaction
+    const localTransaction: Transaction = {
+      id: transactionRef,
+      userId: user.id,
+      type: 'bet',
+      amount: amount,
+      currency: currency,
+      status: 'completed',
+      fee: 0,
+      method: 'game_bet',
+      description: description || `${gameType} - Bet`,
+      reference: transactionRef,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      completedAt: new Date(),
+      metadata: {
+        gameType,
+        ...metadata
+      }
+    };
+    
+    // Add to transactions
+    setTransactions(prev => {
+      const updated = [localTransaction, ...prev];
+      saveTransactionsToLocalStorage(updated);
+      return updated;
+    });
+    
+    console.log('🎰 Bet placed successfully! Bet ID:', transactionRef);
+    
+    // SYNC TO DATABASE IN BACKGROUND (non-blocking)
+    (async () => {
+      try {
+        console.log('💾 Syncing bet to database...');
+        
+        // Try MongoDB backend first
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout for slower connections
+        
+        const normalizedGameType = (metadata?.gameName || gameType || '').toString().toLowerCase() || (metadata?.gameId?.toString().includes('slot') ? 'slots' : 'casino');
+        const betPayload = {
+          userId: user.id,
+          amount: Number(amount),
+          currency,
+          gameId: metadata?.gameId || null,
+          gameType: normalizedGameType,
+          description: description || `${normalizedGameType} - Bet placed`,
+          details: {
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName
+          },
+          metadata
+        } as any;
+        console.log('[FRONT] POST /casino/bet payload', betPayload);
+        const response = await fetch(`${backendUrl}/casino/bet`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify(betPayload)
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('[FRONT] /casino/bet response', data);
+          console.log('✅ Synced to MongoDB successfully');
+          
+          // Update balance from backend response if provided
+          if (data.balance !== undefined) {
+            await updateBalance(data.balance);
+            setAccounts(prev => prev.map(acc =>
+              acc.currency === currency
+                ? { ...acc, balance: data.balance }
+                : acc
+            ));
+          }
+          // Attach betId for later settle
+          if (data?.bet?.id) {
+            try { (localStorage as any).setItem('last_bet_id', data.bet.id); } catch {}
+          }
+        } else {
+          let errText = '';
+          try { errText = await response.text(); } catch {}
+          console.warn('⚠️ MongoDB sync failed', response.status, errText);
+          throw new Error('MongoDB failed');
+        }
+      } catch (error) {
+        console.warn('⚠️ Backend sync failed, trying Supabase...', error);
+        
+        // Try Supabase as fallback
+        try {
+          const transactionData = {
+            user_id: user.id,
+            type: 'bet' as const,
+            amount: amount,
+            currency: currency,
+            status: 'completed' as const,
+            description: description || `${gameType} - Bet`,
+            reference: transactionRef,
+            metadata: {
+              gameType,
+              ...metadata
+            }
+          };
+          
+          await SupabaseAuthService.createTransaction(transactionData);
+          console.log('✅ Synced to Supabase successfully');
+        } catch (supabaseError) {
+          console.warn('⚠️ Database sync failed (non-critical):', supabaseError);
+        }
+      }
+    })(); // Fire and forget - don't wait
+    
+    // Return immediately - don't wait for database sync
+    return { betId: transactionRef };
   };
 
   // Process win
@@ -845,29 +1174,95 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
-      // Update balance immediately for better UX, even if Supabase fails
-      const account = accounts.find(acc => acc.currency === (user.currency || 'USD'));
-      const currentBalance = account?.balance || (user.email === 'demo@spinzos.com' ? 1000 : 100);
+      // Update balance immediately for better UX, even if backend fails
+      const currentBalance = getBalance(user.currency || 'USD');
       const newBalance = currentBalance + amount;
       
       // Update balance immediately
       await updateBalance(newBalance);
-      setAccounts(prev => prev.map(acc => 
-        acc.currency === user.currency 
+      setAccounts(prev => prev.map(acc =>
+        acc.currency === (user.currency || 'USD')
           ? { ...acc, balance: newBalance }
           : acc
       ));
 
-      // Try to create transaction in Supabase (non-blocking)
-      const result = await SupabaseAuthService.createTransaction(transactionData);
-      if (result.success && result.transaction) {
+      // First try MongoDB backend
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+        const backendResp = await fetch(`${backendUrl}/casino/win`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            amount: Number(amount), // payout only (no stake)
+            currency: user.currency || 'INR',
+            gameId: metadata?.gameId,
+            gameType: (metadata?.gameName || gameType || '').toString().toLowerCase() || (metadata?.gameId?.toString().includes('slot') ? 'slots' : 'casino'),
+            description,
+            betId: metadata?.betId,
+            details: {
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName
+            },
+            metadata
+          })
+        });
+        if (backendResp.ok) {
+          const data = await backendResp.json();
+          console.log('[DEBUG] POST /casino/win response:', data);
+          if (data.success && data.transaction) {
+            const tx: Transaction = {
+              id: data.transaction._id,
+              userId: data.transaction.userId,
+              type: 'win',
+              amount: data.transaction.amount,
+              currency: data.transaction.currency || 'INR',
+              status: 'completed',
+              fee: 0,
+              method: 'game_win',
+              description: data.transaction.description,
+              reference: data.transaction.reference,
+              createdAt: new Date(data.transaction.createdAt),
+              updatedAt: new Date(data.transaction.updatedAt),
+              completedAt: data.transaction.completedAt ? new Date(data.transaction.completedAt) : undefined,
+              metadata: data.transaction.metadata || {}
+            };
+            setTransactions(prev => {
+              const updated = [tx, ...prev];
+              saveTransactionsToLocalStorage(updated);
+              return updated;
+            });
+
+            // Update INR account balance/stats from backend response
+            if (typeof data.balance === 'number') {
+              setAccounts(prev => prev.map(acc =>
+                acc.currency === 'INR' && acc.accountType === 'main'
+                  ? { ...acc, balance: data.balance, updatedAt: new Date() }
+                  : acc
+              ));
+              // sync auth balance too (dashboard header)
+              try { await updateBalance(data.balance); } catch {}
+            }
+
+            // Notify listeners (Wallet page) to refresh
+            try { window.dispatchEvent(new CustomEvent('wallet_updated')); } catch {}
+          }
+        }
+      } catch (e) {
+        console.warn('WalletContext: Backend win save failed, will try Supabase:', e);
+      }
+
+      if (!useBackend) {
+        const result = await SupabaseAuthService.createTransaction(transactionData);
+        if (result.success && result.transaction) {
         // Update local state with transaction
         const transaction: Transaction = {
           id: result.transaction.id,
           userId: result.transaction.user_id,
           type: result.transaction.type,
           amount: result.transaction.amount,
-          currency: result.transaction.currency || 'USD',
+          currency: result.transaction.currency || 'INR',
           status: result.transaction.status,
           fee: 0,
           method: result.transaction.metadata?.method || 'unknown',
@@ -885,7 +1280,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           return updated;
         });
         toast.success(`Congratulations! You won ${amount} ${user.currency}!`);
-      } else {
+        } else {
         // If Supabase fails, create local transaction
         console.log('WalletContext: Supabase insert failed, creating local transaction for win');
         const localTransaction: Transaction = {
@@ -893,7 +1288,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           userId: user.id,
           type: 'win',
           amount: transactionData.amount,
-          currency: transactionData.currency || 'USD',
+          currency: transactionData.currency || 'INR',
           status: 'completed',
           fee: 0,
           method: 'game_win',
@@ -909,9 +1304,36 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           return updated;
         });
         toast.success(`Congratulations! You won ${amount} ${user.currency}! (Stored locally - database unavailable)`);
+        }
       }
     } catch (error) {
       console.error('WalletContext: Process win error:', error);
+    }
+  };
+
+  // Process loss (no balance change; just mark bet lost)
+  const processLoss = async (betId: string, gameType: string, metadata?: any) => {
+    if (!user) return;
+    // If we don't have a betId (e.g., bet call timed out), skip backend loss call
+    if (!betId) return;
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      const backendResp = await fetch(`${backendUrl}/casino/loss`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          betId,
+          gameId: metadata?.gameId,
+          gameType: metadata?.gameName || gameType,
+          metadata
+        })
+      });
+      if (backendResp.ok) {
+        try { window.dispatchEvent(new CustomEvent('wallet_updated')); } catch {}
+      }
+    } catch (e) {
+      console.warn('WalletContext: Backend loss save failed:', e);
     }
   };
 
@@ -946,22 +1368,21 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getBalance = (currency?: string): number => {
+    // Prefer INR by default to match backend/main account
+    const preferredCurrency = currency || 'INR' || user?.currency;
     // First try to get from accounts
-    const account = accounts.find(acc => acc.currency === (currency || user?.currency || 'USD'));
+    const account = accounts.find(acc => acc.currency === preferredCurrency);
     if (account?.balance !== undefined && account?.balance !== null) {
-      console.log('WalletContext: getBalance from account - balance:', account.balance);
       return account.balance;
     }
     
     // Fallback to user.balance if available
     if (user?.balance !== undefined && user?.balance !== null) {
-      console.log('WalletContext: getBalance from user - balance:', user.balance);
       return user.balance;
     }
     
     // Default fallback
-    const defaultBalance = user?.email === 'demo@spinzos.com' ? 1000 : 100;
-    console.log('WalletContext: getBalance default - balance:', defaultBalance);
+    const defaultBalance = user?.email === 'demo@spinzos.com' ? 1000 : 0;
     return defaultBalance;
   };
 
@@ -976,12 +1397,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       console.log('WalletContext: Refreshing wallet data...');
       setIsLoading(true);
       
-      // Refresh user data to get updated balance
-      const userResult = await SupabaseAuthService.getCurrentUser();
-      if (userResult.success && userResult.user) {
-        console.log('WalletContext: User balance refreshed:', userResult.user.balance);
-        // Update the user context with new balance
-        // This will trigger a re-render with updated balance
+      // Skip Supabase refresh when backend auth is enabled
+      if (!((import.meta as any).env?.VITE_USE_BACKEND_AUTH === 'true')) {
+        const userResult = await SupabaseAuthService.getCurrentUser();
+        if (userResult && (userResult as any).success && (userResult as any).user) {
+          console.log('WalletContext: User balance refreshed:', (userResult as any).user.balance);
+        }
       }
       
       // Reload all wallet data
@@ -1008,23 +1429,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   };
 
   const getAvailableBalance = (): number => {
-    // First try to get from accounts
-    const account = accounts.find(acc => acc.currency === (user?.currency || 'USD'));
-    if (account?.balance !== undefined && account?.balance !== null) {
-      console.log('WalletContext: getAvailableBalance from account - balance:', account.balance);
-      return account.balance;
-    }
-    
-    // Fallback to user.balance if available
-    if (user?.balance !== undefined && user?.balance !== null) {
-      console.log('WalletContext: getAvailableBalance from user - balance:', user.balance);
-      return user.balance;
-    }
-    
-    // Default fallback
-    const defaultBalance = user?.email === 'demo@spinzos.com' ? 1000 : 100;
-    console.log('WalletContext: getAvailableBalance default - balance:', defaultBalance);
-    return defaultBalance;
+    // Use the same source as getBalance, prefer INR main account
+    const balance = getBalance('INR');
+    const reservedAmount = stats.activeBets || 0;
+    return Math.max(0, balance - reservedAmount);
   };
 
   return (
@@ -1048,6 +1456,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       transferFunds,
       processBet,
       processWin,
+      processLoss,
       validateBalance,
       getAvailableBalance
     }}>

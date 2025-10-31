@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../../contexts/SupabaseAuthContext';
 import { Trophy, DollarSign, Gift, Zap, Crown, Star, Target, Coins } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency } from '../../lib/utils';
@@ -53,10 +54,35 @@ const LOTTERY_PRIZES = [
 ];
 
 export function LiveNotificationSystem() {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<LiveNotification[]>([]);
   const [isActive, setIsActive] = useState(true);
   const [visibleNotifications, setVisibleNotifications] = useState<Set<string>>(new Set());
   const [nextNotificationTime, setNextNotificationTime] = useState(Date.now() + 3000);
+  const removalTimers = useRef<Record<string, number>>({});
+
+  // Show only for the first 15 seconds after a user logs in.
+  // After that, hide until a different user logs in.
+  useEffect(() => {
+    if (!user) return;
+
+    const storedUserId = localStorage.getItem('liveNotifUser');
+    const storedSeen = localStorage.getItem('liveNotifSeen');
+
+    if (storedUserId === (user.id || user.userId) && storedSeen === 'true') {
+      setIsActive(false);
+      return;
+    }
+
+    setIsActive(true);
+    const timer = window.setTimeout(() => {
+      setIsActive(false);
+      localStorage.setItem('liveNotifUser', (user.id || user.userId || 'unknown'));
+      localStorage.setItem('liveNotifSeen', 'true');
+    }, 15000);
+
+    return () => clearTimeout(timer);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -137,18 +163,18 @@ export function LiveNotificationSystem() {
         setNotifications(prev => [notification]); // Show only ONE notification at a time
         setVisibleNotifications(prev => new Set([notification.id]));
 
-        // Auto-hide notification after 8 seconds
-        setTimeout(() => {
+        // Auto-hide notification after 8 seconds, then schedule removal (storable timer for Undo)
+        window.setTimeout(() => {
           setVisibleNotifications(prev => {
             const newSet = new Set(prev);
             newSet.delete(notification.id);
             return newSet;
           });
-          
-          // Remove from list after hide animation (300ms)
-          setTimeout(() => {
+          // Schedule removal in 4s to allow Undo
+          removalTimers.current[notification.id] = window.setTimeout(() => {
             setNotifications(prev => prev.filter(n => n.id !== notification.id));
-          }, 300);
+            delete removalTimers.current[notification.id];
+          }, 4000);
         }, 8000);
         
         // Set next notification time to 10 seconds from now
@@ -226,14 +252,7 @@ export function LiveNotificationSystem() {
     }
   };
 
-  const getNotificationSound = (type: LiveNotification['type'], special: boolean) => {
-    if (special) return '🔊 MEGA WIN SOUND!';
-    switch (type) {
-      case 'jackpot': return '🔊 JACKPOT SOUND!';
-      case 'lottery_win': return '🔊 PRIZE WIN SOUND!';
-      default: return '🔊 Win sound...';
-    }
-  };
+  // sounds disabled in production for now
 
   return (
     <div className="fixed top-16 sm:top-20 right-2 sm:right-4 z-[35] space-y-1 sm:space-y-2 pointer-events-none max-w-48 sm:max-w-xs">
@@ -247,9 +266,9 @@ export function LiveNotificationSystem() {
               key={notification.id}
               initial={{ x: 400, opacity: 0, scale: 0.8 }}
               animate={{ 
-                x: visibleNotifications.has(notification.id) ? 0 : 400, 
-                opacity: visibleNotifications.has(notification.id) ? 1 : 0, 
-                scale: visibleNotifications.has(notification.id) ? 1 : 0.8 
+                x: 0, 
+                opacity: visibleNotifications.has(notification.id) ? 1 : 0.6, 
+                scale: visibleNotifications.has(notification.id) ? 1 : 0.95 
               }}
               exit={{ x: 400, opacity: 0, scale: 0.8 }}
               transition={{ 
@@ -270,9 +289,11 @@ export function LiveNotificationSystem() {
                   newSet.delete(notification.id);
                   return newSet;
                 });
-                setTimeout(() => {
+                // Schedule removal and store timer so Undo can cancel it
+                removalTimers.current[notification.id] = window.setTimeout(() => {
                   setNotifications(prev => prev.filter(n => n.id !== notification.id));
-                }, 300);
+                  delete removalTimers.current[notification.id];
+                }, 4000);
               }}
             >
               {/* Special effects for big wins */}
@@ -320,6 +341,12 @@ export function LiveNotificationSystem() {
                       animate={{ opacity: 1, scale: 1 }}
                       onClick={(e) => {
                         e.stopPropagation();
+                        // Cancel any pending removal timer
+                        const timerId = removalTimers.current[notification.id];
+                        if (timerId) {
+                          clearTimeout(timerId);
+                          delete removalTimers.current[notification.id];
+                        }
                         setVisibleNotifications(prev => new Set(prev).add(notification.id));
                       }}
                       className="mt-2 w-full bg-white/20 hover:bg-white/30 text-white text-xs py-1 px-2 rounded transition-colors"

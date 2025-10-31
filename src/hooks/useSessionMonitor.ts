@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useAuth } from '../contexts/SupabaseAuthContext';
 import { supabase } from '../lib/supabase';
+import { BackendAuthService } from '../services/backendAuthService';
 import toast from 'react-hot-toast';
 
 export function useSessionMonitor() {
@@ -9,27 +10,41 @@ export function useSessionMonitor() {
   useEffect(() => {
     // Monitor for session expiry
     const checkSessions = async () => {
-      // Check user session with Supabase
+      const useBackend = (import.meta as any).env?.VITE_USE_BACKEND_AUTH === 'true';
+      // Check user session
       if (isAuthenticated) {
-        try {
-          const { data: { session }, error } = await supabase.auth.getSession();
-          
-          if (error || !session) {
+        if (useBackend) {
+          try {
+            const token = localStorage.getItem('elitebet_backend_token');
+            if (!token) {
+              userLogout();
+              toast.error('Your session has expired. Please login again.');
+              return;
+            }
+            await BackendAuthService.me(token);
+          } catch (error) {
             userLogout();
             toast.error('Your session has expired. Please login again.');
             return;
           }
-
-          // Check if session is expired
-          if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
+        } else {
+          try {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (error || !session) {
+              userLogout();
+              toast.error('Your session has expired. Please login again.');
+              return;
+            }
+            if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
+              userLogout();
+              toast.error('Your session has expired. Please login again.');
+              return;
+            }
+          } catch (error) {
+            console.error('Session check error:', error);
             userLogout();
-            toast.error('Your session has expired. Please login again.');
-            return;
+            toast.error('Session validation failed. Please login again.');
           }
-        } catch (error) {
-          console.error('Session check error:', error);
-          userLogout();
-          toast.error('Session validation failed. Please login again.');
         }
       }
 
@@ -67,25 +82,39 @@ export function useSessionMonitor() {
         // Tab became visible, check if sessions are still valid
         setTimeout(async () => {
           if (isAuthenticated) {
-            try {
-              const { data: { session }, error } = await supabase.auth.getSession();
-              
-              if (error || !session) {
+            const useBackend = (import.meta as any).env?.VITE_USE_BACKEND_AUTH === 'true';
+            if (useBackend) {
+              try {
+                const token = localStorage.getItem('elitebet_backend_token');
+                if (!token) {
+                  userLogout();
+                  toast.error('Your session expired while you were away.');
+                  return;
+                }
+                await BackendAuthService.me(token);
+              } catch {
                 userLogout();
                 toast.error('Your session expired while you were away.');
                 return;
               }
-
-              // Check if session is expired
-              if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
+            } else {
+              try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error || !session) {
+                  userLogout();
+                  toast.error('Your session expired while you were away.');
+                  return;
+                }
+                if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
+                  userLogout();
+                  toast.error('Your session expired while you were away.');
+                  return;
+                }
+              } catch (error) {
+                console.error('Session check error:', error);
                 userLogout();
-                toast.error('Your session expired while you were away.');
-                return;
+                toast.error('Session validation failed.');
               }
-            } catch (error) {
-              console.error('Session check error:', error);
-              userLogout();
-              toast.error('Session validation failed.');
             }
           }
           

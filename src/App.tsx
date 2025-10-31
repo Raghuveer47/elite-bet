@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/SupabaseAuthContext';
 import { AdminProvider } from './contexts/SupabaseAdminContext';
 import { WalletProvider } from './contexts/SupabaseWalletContext';
+import { SocketProvider } from './contexts/SocketContext';
 import { SessionMonitorWrapper } from './components/SessionMonitorWrapper';
 import { Toaster } from 'react-hot-toast';
 import { Header } from './components/layout/Header';
@@ -31,11 +32,11 @@ import { KYCManagement } from './pages/admin/KYCManagement';
 import { PromotionManagement } from './pages/admin/PromotionManagement';
 import { SupportManagement } from './pages/admin/SupportManagement';
 import { AdminLayout } from './pages/admin/AdminLayout';
+import { WithdrawalsManagement } from './pages/admin/WithdrawalsManagement';
 import { NotFoundPage } from './pages/NotFoundPage';
-// import { LiveNotificationSystem } from './components/notifications/LiveNotificationSystem';
-import { ActivityFeed } from './components/notifications/ActivityFeed';
+// import { ActivityFeed } from './components/notifications/ActivityFeed';
 // import { FloatingWinners } from './components/notifications/FloatingWinners';
-import { JackpotTicker } from './components/notifications/JackpotTicker';
+// import { JackpotTicker } from './components/notifications/JackpotTicker';
 
 // import { useRealisticNotifications } from './hooks/useRealisticNotifications';
 function AppContent() {
@@ -77,10 +78,6 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            <div className="fixed inset-0 pointer-events-none z-20">
-              <ActivityFeed />
-              <JackpotTicker />
-            </div>
             <DashboardPage />
           </div>
         </ProtectedRoute>
@@ -89,10 +86,6 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            <div className="fixed inset-0 pointer-events-none z-20">
-              <ActivityFeed />
-              <JackpotTicker />
-            </div>
             <SportsPage />
           </div>
         </ProtectedRoute>
@@ -101,10 +94,6 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            <div className="fixed inset-0 pointer-events-none z-20">
-              <ActivityFeed />
-              <JackpotTicker />
-            </div>
             <CasinoPage />
           </div>
         </ProtectedRoute>
@@ -113,10 +102,6 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            <div className="fixed inset-0 pointer-events-none z-20">
-              <ActivityFeed />
-              <JackpotTicker />
-            </div>
             <WalletPage />
           </div>
         </ProtectedRoute>
@@ -125,10 +110,6 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            <div className="fixed inset-0 pointer-events-none z-20">
-              <ActivityFeed />
-              <JackpotTicker />
-            </div>
             <AccountPage />
           </div>
         </ProtectedRoute>
@@ -137,10 +118,6 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            <div className="fixed inset-0 pointer-events-none z-20">
-              <ActivityFeed />
-              <JackpotTicker />
-            </div>
             <PromotionsPage />
           </div>
         </ProtectedRoute>
@@ -149,10 +126,6 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            <div className="fixed inset-0 pointer-events-none z-20">
-              <ActivityFeed />
-              <JackpotTicker />
-            </div>
             <SupportPage />
           </div>
         </ProtectedRoute>
@@ -161,10 +134,6 @@ function AppContent() {
         <ProtectedRoute>
           <div className="min-h-screen bg-slate-900">
             <Header />
-            <div className="fixed inset-0 pointer-events-none z-20">
-              <ActivityFeed />
-              <JackpotTicker />
-            </div>
             <SportsPage />
           </div>
         </ProtectedRoute>
@@ -194,6 +163,13 @@ function AppContent() {
         <AdminProtectedRoute>
           <AdminLayout>
             <FinancialManagement />
+          </AdminLayout>
+        </AdminProtectedRoute>
+      } />
+      <Route path="/admin/withdrawals" element={
+        <AdminProtectedRoute>
+          <AdminLayout>
+            <WithdrawalsManagement />
           </AdminLayout>
         </AdminProtectedRoute>
       } />
@@ -245,10 +221,12 @@ function App() {
         <SessionMonitorWrapper>
           <AdminProvider>
             <WalletProvider>
+              <SocketProvider>
               <Router>
                 <ErrorBoundary>
                   <AppContent />
                 </ErrorBoundary>
+                {/* Live notifications disabled */}
                 <Toaster 
                   position="top-right"
                   toastOptions={{
@@ -261,6 +239,7 @@ function App() {
                   }}
                 />
               </Router>
+              </SocketProvider>
             </WalletProvider>
           </AdminProvider>
         </SessionMonitorWrapper>

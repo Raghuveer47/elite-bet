@@ -41,8 +41,8 @@ const CARD_SUITS = {
 
 export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
   const { user } = useAuth();
-  const { processBet, processWin } = useWallet();
-  const { session, isPlaying, setIsPlaying, placeBet, addWinnings, resetSession } = useCasinoGame(gameId);
+  const { processBet, processWin, getAvailableBalance } = useWallet();
+  const { session, isPlaying, setIsPlaying, placeBet, addWinnings, markLoss, resetSession } = useCasinoGame(gameId);
   const [deck, setDeck] = useState<Card[]>([]);
   const [playerHand, setPlayerHand] = useState<BaccaratHand | null>(null);
   const [bankerHand, setBankerHand] = useState<BaccaratHand | null>(null);
@@ -62,6 +62,25 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
   const [winAnimation, setWinAnimation] = useState(false);
   const [gameHistory, setGameHistory] = useState<any[]>([]);
   const [trends, setTrends] = useState({ player: 0, banker: 0, tie: 0 });
+
+  // Always-read available balance to avoid stale session.balance checks
+  const availableBalance = getAvailableBalance();
+
+  // Ensure clean state after refresh/navigation so first hand can start
+  useEffect(() => {
+    try {
+      setIsPlaying(false);
+      setGamePhase('betting');
+      setBets([]);
+      setPlayerHand(null);
+      setBankerHand(null);
+      setWinAnimation(false);
+    } catch {}
+    const t = setTimeout(() => {
+      try { setIsPlaying(false); } catch {}
+    }, 50);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     setDeck(createDeck());
@@ -136,30 +155,34 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
   };
 
   const placeBetOnOption = (type: Bet['type'], payout: number) => {
-    const betAmounts = {
-      player: Math.floor(session.balance * 0.1),
-      banker: Math.floor(session.balance * 0.1),
-      tie: Math.floor(session.balance * 0.05),
-      player_pair: Math.floor(session.balance * 0.02),
-      banker_pair: Math.floor(session.balance * 0.02)
-    };
+    // Flat chip size (you can wire this to UI later)
+    const chip = 100;
 
-    const amount = Math.min(betAmounts[type], 100);
-
-    if (!user || amount > session.balance) {
-      toast.error('Insufficient balance!');
+    if (!user) {
+      toast.error('Please login to place bets');
       return;
     }
 
-    // Remove existing bet of same type
-    setBets(prev => prev.filter(bet => bet.type !== type));
-    
-    const newBet: Bet = { type, amount, payout };
-    setBets(prev => [...prev, newBet]);
-    
-    if (soundEnabled) {
-      console.log('🔊 Chip placed sound...');
-    }
+    setBets(prev => {
+      // Current total other bets (excluding this type)
+      const otherTotal = prev.filter(b => b.type !== type).reduce((s, b) => s + b.amount, 0);
+      const existing = prev.find(b => b.type === type);
+      const nextAmount = (existing?.amount || 0) + chip;
+
+      if (otherTotal + nextAmount > availableBalance) {
+        toast.error('Insufficient balance!');
+        return prev;
+      }
+
+      const updated: Bet = { type, amount: nextAmount, payout };
+      const next = [...prev.filter(b => b.type !== type), updated];
+
+      if (soundEnabled) {
+        console.log('🔊 Chip placed sound...');
+      }
+
+      return next;
+    });
   };
 
   const startGame = async () => {
@@ -169,53 +192,111 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
     }
 
     const totalBetAmount = bets.reduce((sum, bet) => sum + bet.amount, 0);
-    if (!user || totalBetAmount > session.balance) {
+    if (!user || totalBetAmount > availableBalance) {
       toast.error('Insufficient balance for all bets!');
       return;
     }
 
     try {
-      bets.forEach(bet => placeBet(bet.amount));
-      
-      bets.forEach(bet => {
-      });
-      
+      // Start UI immediately – never block on network
       setIsPlaying(true);
       setGamePhase('dealing');
       setMessage('Dealing cards...');
       setWinAnimation(false);
+
+      // Safety net: if UI gets stuck in dealing, auto-deal after 1.2s
+      // This prevents rare cases where an awaited delay is interrupted by re-renders
+      // and users see an endless "Dealing cards..." message.
+      setTimeout(() => {
+        try {
+          // Only run if no cards are shown (avoid stale phase checks in closure)
+          if (!playerHand && !bankerHand) {
+            // Minimal immediate deal (no animation) to unblock the round
+            let fallbackDeck = createDeck();
+            const p1 = fallbackDeck.pop()!;
+            const b1 = fallbackDeck.pop()!;
+            const p2 = fallbackDeck.pop()!;
+            const b2 = fallbackDeck.pop()!;
+
+            const ph = createBaccaratHand([p1, p2]);
+            const bh = createBaccaratHand([b1, b2]);
+
+            setPlayerHand(ph);
+            setBankerHand(bh);
+            setDeck(fallbackDeck);
+            setMessage(`Player: ${ph.value} | Banker: ${bh.value}`);
+            // The normal flow will pick up from here (naturals/third card/finish)
+          }
+        } catch {}
+      }, 1200);
+
+      // Deduct all bets with short timeouts so dealing can proceed
+      const withTimeout = async <T,>(p: Promise<T>, ms: number): Promise<T> => {
+        return await Promise.race<T>([
+          p,
+          new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)) as Promise<T>
+        ]);
+      };
+
+      // Deduct locally (fast, never block)
+      await Promise.allSettled(bets.map(b => placeBet(b.amount)));
+
+      // Persist to backend wallet in background (non-blocking)
+      (async () => {
+        for (const bet of bets) {
+          try {
+            const optionLabel = ({ player: 'PLAYER', banker: 'BANKER', tie: 'TIE', player_pair: 'PLAYER PAIR', banker_pair: 'BANKER PAIR' } as const)[bet.type];
+            await withTimeout(
+              processBet(
+                bet.amount,
+                'Casino Game',
+                `${gameName} - ${optionLabel} (${bet.payout}:1)`,
+                { gameId, gameName, betOption: bet.type, betAmount: bet.amount, payoutRatio: bet.payout }
+              ),
+              5000
+            );
+          } catch (e) {
+            // Non-critical; UI continues
+          }
+        }
+      })();
       
+      console.log('[Baccarat] Creating deck and starting animated deal');
       let currentDeck = createDeck();
       
-      // Deal initial cards with animation
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Deal initial cards with snappy animation, revealing one by one
+      await new Promise(resolve => setTimeout(resolve, 120));
       
       const { card: playerCard1, newDeck: deck1 } = dealCard(currentDeck);
-      await new Promise(resolve => setTimeout(resolve, 600));
+      console.log('[Baccarat] Dealt P1', playerCard1);
+      setPlayerHand(createBaccaratHand([playerCard1]));
+      await new Promise(resolve => setTimeout(resolve, 140));
       
       const { card: bankerCard1, newDeck: deck2 } = dealCard(deck1);
-      await new Promise(resolve => setTimeout(resolve, 600));
+      console.log('[Baccarat] Dealt B1', bankerCard1);
+      setBankerHand(createBaccaratHand([bankerCard1]));
+      await new Promise(resolve => setTimeout(resolve, 140));
       
       const { card: playerCard2, newDeck: deck3 } = dealCard(deck2);
-      await new Promise(resolve => setTimeout(resolve, 600));
+      console.log('[Baccarat] Dealt P2', playerCard2);
+      let newPlayerHand = createBaccaratHand([playerCard1, playerCard2]);
+      setPlayerHand(newPlayerHand);
+      await new Promise(resolve => setTimeout(resolve, 140));
       
       const { card: bankerCard2, newDeck: finalDeck } = dealCard(deck3);
-      
-      let newPlayerHand = createBaccaratHand([playerCard1, playerCard2]);
+      console.log('[Baccarat] Dealt B2', bankerCard2);
       let newBankerHand = createBaccaratHand([bankerCard1, bankerCard2]);
-      
-      setPlayerHand(newPlayerHand);
       setBankerHand(newBankerHand);
       setDeck(finalDeck);
       
       setMessage(`Player: ${newPlayerHand.value} | Banker: ${newBankerHand.value}`);
       
-      // Check for naturals
+      // Check for naturals – finish immediately for snappy UX
       if (newPlayerHand.isNatural || newBankerHand.isNatural) {
         setMessage(`🌟 Natural ${newPlayerHand.value > newBankerHand.value ? 'Player' : newBankerHand.value > newPlayerHand.value ? 'Banker' : 'Tie'}!`);
         setGameStats(prev => ({ ...prev, naturals: prev.naturals + 1 }));
-        setTimeout(() => finishGame(newPlayerHand, newBankerHand, finalDeck), 2000);
-        return;
+        console.log('[Baccarat] Natural detected → finishing');
+        return finishGame(newPlayerHand, newBankerHand, finalDeck);
       }
       
       // Third card rules
@@ -223,13 +304,13 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
       
       // Player third card rule
       if (newPlayerHand.value <= 5) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 220));
         setMessage('Player draws third card...');
         const { card: playerCard3, newDeck: deck4 } = dealCard(updatedDeck);
         newPlayerHand = createBaccaratHand([...newPlayerHand.cards, playerCard3]);
         setPlayerHand(newPlayerHand);
         updatedDeck = deck4;
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 180));
       }
       
       // Banker third card rule
@@ -240,11 +321,12 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
         newBankerHand = createBaccaratHand([...newBankerHand.cards, bankerCard3]);
         setBankerHand(newBankerHand);
         updatedDeck = finalDeck2;
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 180));
       }
       
       setDeck(updatedDeck);
-      setTimeout(() => finishGame(newPlayerHand, newBankerHand, updatedDeck), 1000);
+      console.log('[Baccarat] No natural → finishing');
+      return finishGame(newPlayerHand, newBankerHand, updatedDeck);
       
     } catch (error) {
       console.error('Deal error:', error);
@@ -270,7 +352,12 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
     }
   };
 
-  const finishGame = (finalPlayerHand: BaccaratHand, finalBankerHand: BaccaratHand, finalDeck: Card[]) => {
+  const finishGame = async (
+    finalPlayerHand: BaccaratHand,
+    finalBankerHand: BaccaratHand,
+    _finalDeck: Card[]
+  ) => {
+    console.log('[Baccarat] finishGame()', { player: finalPlayerHand, banker: finalBankerHand });
     setGamePhase('finished');
     
     const playerValue = finalPlayerHand.value;
@@ -288,68 +375,33 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
       setMessage(`🤝 Tie! Both have ${playerValue}`);
     }
     
-    // Check pair bets
     const playerPair = finalPlayerHand.cards.length >= 2 && 
                       finalPlayerHand.cards[0].rank === finalPlayerHand.cards[1].rank;
     const bankerPair = finalBankerHand.cards.length >= 2 && 
                       finalBankerHand.cards[0].rank === finalBankerHand.cards[1].rank;
     
     let totalWinnings = 0;
-    const winningBets: string[] = [];
+    const totalStake = bets.reduce((s, b) => s + b.amount, 0);
     
-    bets.forEach(bet => {
-      let winAmount = 0;
-      
+    for (const bet of bets) {
       switch (bet.type) {
         case 'player':
-          if (winner === 'player') {
-            winAmount = bet.amount * bet.payout;
-            winningBets.push('Player');
-          }
+          totalWinnings += winner === 'player' ? bet.amount * bet.payout : winner === 'tie' ? bet.amount : 0;
           break;
         case 'banker':
-          if (winner === 'banker') {
-            winAmount = bet.amount * bet.payout;
-            winningBets.push('Banker');
-          }
+          totalWinnings += winner === 'banker' ? bet.amount * bet.payout : winner === 'tie' ? bet.amount : 0;
           break;
         case 'tie':
-          if (winner === 'tie') {
-            winAmount = bet.amount * bet.payout;
-            winningBets.push('Tie');
-          } else {
-            // Tie bets push on player/banker wins
-            winAmount = bet.amount;
-          }
+          totalWinnings += winner === 'tie' ? bet.amount * bet.payout : 0;
           break;
         case 'player_pair':
-          if (playerPair) {
-            winAmount = bet.amount * bet.payout;
-            winningBets.push('Player Pair');
-          }
+          totalWinnings += playerPair ? bet.amount * bet.payout : 0;
           break;
         case 'banker_pair':
-          if (bankerPair) {
-            winAmount = bet.amount * bet.payout;
-            winningBets.push('Banker Pair');
-          }
+          totalWinnings += bankerPair ? bet.amount * bet.payout : 0;
           break;
       }
-      
-      totalWinnings += winAmount;
-    });
-    
-    // Update game history
-    const gameResult = {
-      winner,
-      playerValue,
-      bankerValue,
-      playerPair,
-      bankerPair,
-      isNatural: finalPlayerHand.isNatural || finalBankerHand.isNatural,
-      timestamp: new Date()
-    };
-    setGameHistory(prev => [gameResult, ...prev.slice(0, 19)]);
+    }
     
     // Update stats
     setGameStats(prev => ({
@@ -358,45 +410,40 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
       playerWins: prev.playerWins + (winner === 'player' ? 1 : 0),
       bankerWins: prev.bankerWins + (winner === 'banker' ? 1 : 0),
       ties: prev.ties + (winner === 'tie' ? 1 : 0),
-      naturals: prev.naturals + (gameResult.isNatural ? 1 : 0)
+      naturals: prev.naturals + ((finalPlayerHand.isNatural || finalBankerHand.isNatural) ? 1 : 0)
     }));
     
+    try {
     if (totalWinnings > 0) {
-      addWinnings(totalWinnings);
+        await addWinnings(totalWinnings);
       setWinAnimation(true);
-      setTimeout(() => setWinAnimation(false), 4000);
-      
-      const profit = totalWinnings - bets.reduce((sum, bet) => sum + bet.amount, 0);
-      const multiplier = totalWinnings / bets.reduce((sum, bet) => sum + bet.amount, 0);
-      
-      
-      if (soundEnabled) {
-        console.log('🔊 Win sound playing...');
-      }
-      
-      if (multiplier >= 8) {
-        toast.success(`👑 MEGA WIN! ${winner.toUpperCase()} - +${formatCurrency(totalWinnings)} (${multiplier.toFixed(1)}x)`, { duration: 8000 });
-      } else if (multiplier >= 3) {
-        toast.success(`🎯 BIG WIN! ${winner.toUpperCase()} - +${formatCurrency(totalWinnings)} (${multiplier.toFixed(1)}x)`, { duration: 6000 });
+        setTimeout(() => setWinAnimation(false), 1000);
       } else {
-        toast.success(`🎉 Winner! ${winner.toUpperCase()} - +${formatCurrency(totalWinnings)}`);
+        await markLoss();
       }
-    } else {
-      if (soundEnabled) {
-        console.log('🔊 Loss sound playing...');
-      }
-      toast.error(`😔 ${winner.toUpperCase()} wins - Better luck next hand!`);
+    } catch (e) {
+      console.warn('[Baccarat] wallet settlement failed (non-fatal):', e);
     }
     
+    try {
     eventBus.emit('casinoWin', {
       gameId,
-      userId: user.id,
+      userId: user?.id || '',
       gameName,
-      betAmount: bets.reduce((sum, bet) => sum + bet.amount, 0),
+        betAmount: totalStake,
       winAmount: totalWinnings,
-      result: gameResult,
+        result: {
+          winner,
+          playerValue,
+          bankerValue,
+          playerPair,
+          bankerPair,
+          isNatural: finalPlayerHand.isNatural || finalBankerHand.isNatural,
+          timestamp: new Date()
+        },
       timestamp: new Date()
     });
+    } catch {}
     
     setIsPlaying(false);
     setBets([]);
@@ -678,7 +725,7 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
           <div className="flex justify-center space-x-6">
             <Button
               onClick={startGame}
-              disabled={bets.length === 0 || totalBetAmount > session.balance}
+              disabled={bets.length === 0 || totalBetAmount > availableBalance}
               className="px-16 py-6 text-2xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 hover:from-purple-500 hover:via-pink-500 hover:to-red-500 transform hover:scale-110 transition-all duration-300 shadow-2xl shadow-purple-500/30 rounded-2xl border-2 border-purple-400"
             >
               <Crown className="w-8 h-8 mr-3" />
