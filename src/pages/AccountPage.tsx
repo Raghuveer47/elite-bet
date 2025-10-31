@@ -16,7 +16,7 @@ export function AccountPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  // kycStatus not used; removed to satisfy linter
+  const [kycStatus, setKycStatus] = useState<any>(null);
   
   const [profileData, setProfileData] = useState({
     firstName: user?.firstName || '',
