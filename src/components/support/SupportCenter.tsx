@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageCircle, Phone, Mail, Search, Plus, Send, Eye, Image as ImageIcon, X } from 'lucide-react';
+import { MessageCircle, Mail, Search, Plus, Send, Eye, Image as ImageIcon, X } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
@@ -651,7 +651,7 @@ export function SupportCenter() {
                   </div>
                 )}
                 
-                {(activeChat.status === 'ended' || activeChat.status === 'timeout') && (
+                {((activeChat.status as string) === 'ended' || (activeChat.status as string) === 'timeout') && (
                   <div className="p-4 bg-slate-600/50 text-center text-sm text-slate-300">
                     This chat has ended. Start a new chat if you need assistance.
                   </div>

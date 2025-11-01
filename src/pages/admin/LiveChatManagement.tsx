@@ -6,11 +6,11 @@ import { SupportService } from '../../services/supportService';
 import { formatDate } from '../../lib/utils';
 import toast from 'react-hot-toast';
 
-interface LiveChat {
+interface LiveChatLocal {
   id: string;
   userId: string;
   userName?: string;
-  agentId: string | null;
+  agentId: string | null | undefined;
   status: 'waiting' | 'active' | 'ended' | 'timeout';
   messages: Array<{
     id?: string;
@@ -21,12 +21,13 @@ interface LiveChat {
   }>;
   startedAt: Date;
   endedAt?: Date;
+  endedBy?: string;
   lastActivityAt?: Date;
 }
 
 export function LiveChatManagement() {
-  const [chats, setChats] = useState<LiveChat[]>([]);
-  const [selectedChat, setSelectedChat] = useState<LiveChat | null>(null);
+  const [chats, setChats] = useState<LiveChatLocal[]>([]);
+  const [selectedChat, setSelectedChat] = useState<LiveChatLocal | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'waiting' | 'active'>('all');
@@ -59,13 +60,13 @@ export function LiveChatManagement() {
   const loadChats = async (showToast = false) => {
     try {
       const allChats = await SupportService.getAllLiveChats();
-      setChats(allChats);
+      setChats(allChats as LiveChatLocal[]);
       
       // Update selected chat if it exists
       if (selectedChat) {
         const updated = allChats.find(c => c.id === selectedChat.id);
         if (updated) {
-          setSelectedChat(updated);
+          setSelectedChat(updated as LiveChatLocal);
         }
       }
       
@@ -160,7 +161,7 @@ export function LiveChatManagement() {
     }
   };
 
-  const getStatusColor = (status: LiveChat['status']) => {
+  const getStatusColor = (status: LiveChatLocal['status']) => {
     switch (status) {
       case 'waiting': return 'text-yellow-400 bg-yellow-500/10 animate-pulse';
       case 'active': return 'text-green-400 bg-green-500/10';
@@ -253,14 +254,14 @@ export function LiveChatManagement() {
       <div className="flex items-center justify-between">
         <div className="flex space-x-2">
           <Button
-            variant={filter === 'all' ? 'default' : 'outline'}
+            variant={filter === 'all' ? 'primary' : 'outline'}
             size="sm"
             onClick={() => setFilter('all')}
           >
             All ({filteredChats.length})
           </Button>
           <Button
-            variant={filter === 'waiting' ? 'default' : 'outline'}
+            variant={filter === 'waiting' ? 'primary' : 'outline'}
             size="sm"
             onClick={() => setFilter('waiting')}
             className={waitingCount > 0 ? 'animate-pulse' : ''}
@@ -268,7 +269,7 @@ export function LiveChatManagement() {
             Waiting ({waitingCount})
           </Button>
           <Button
-            variant={filter === 'active' ? 'default' : 'outline'}
+            variant={filter === 'active' ? 'primary' : 'outline'}
             size="sm"
             onClick={() => setFilter('active')}
           >
@@ -277,7 +278,7 @@ export function LiveChatManagement() {
         </div>
         
         <Button
-          variant={showHistory ? 'default' : 'outline'}
+          variant={showHistory ? 'primary' : 'outline'}
           size="sm"
           onClick={() => setShowHistory(!showHistory)}
         >

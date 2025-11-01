@@ -1,6 +1,4 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/SupabaseAuthContext';
 import { AdminProvider } from './contexts/SupabaseAdminContext';
 import { WalletProvider } from './contexts/SupabaseWalletContext';

@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  Shield, BarChart3, Users, DollarSign, Gamepad2, 
-  AlertTriangle, MessageCircle, Gift, Settings, Wallet,
-  ChevronLeft, ChevronRight, Home, LogOut, Activity,
-  TrendingUp, Bell, Clock, CheckCircle
+  Shield, BarChart3, Users, DollarSign,
+  MessageCircle, Settings, Wallet,
+  ChevronLeft, ChevronRight, LogOut
 } from 'lucide-react';
 import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { Button } from '../ui/Button';
@@ -12,7 +11,7 @@ import { cn } from '../../lib/utils';
 
 export function AdminSidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { adminUser, adminLogout, systemStats, pendingPayments, riskAlerts } = useAdmin();
+  const { adminUser, adminLogout, systemStats, pendingPayments } = useAdmin();
   const location = useLocation();
 
   const navigation = [
@@ -48,22 +47,24 @@ export function AdminSidebar() {
       description: 'Payments & reports',
       urgent: pendingPayments.filter(p => p.status === 'pending').length > 0
     },
-    { 
-      name: 'Game Management', 
-      href: '/admin/games', 
-      icon: Gamepad2,
-      badge: null,
-      description: 'Configure games & RTPs'
-    },
-    { 
-      name: 'Risk Management', 
-      href: '/admin/risk', 
-      icon: AlertTriangle,
-      badge: riskAlerts.filter(a => a.severity === 'critical' || a.severity === 'high').length > 0 ?
-        riskAlerts.filter(a => a.severity === 'critical' || a.severity === 'high').length.toString() : null,
-      description: 'Security & fraud detection',
-      urgent: riskAlerts.filter(a => a.severity === 'critical').length > 0
-    },
+    // Hidden - Game Management
+    // { 
+    //   name: 'Game Management', 
+    //   href: '/admin/games', 
+    //   icon: Gamepad2,
+    //   badge: null,
+    //   description: 'Configure games & RTPs'
+    // },
+    // Hidden - Risk Management
+    // { 
+    //   name: 'Risk Management', 
+    //   href: '/admin/risk', 
+    //   icon: AlertTriangle,
+    //   badge: riskAlerts.filter(a => a.severity === 'critical' || a.severity === 'high').length > 0 ?
+    //     riskAlerts.filter(a => a.severity === 'critical' || a.severity === 'high').length.toString() : null,
+    //   description: 'Security & fraud detection',
+    //   urgent: riskAlerts.filter(a => a.severity === 'critical').length > 0
+    // },
     { 
       name: 'KYC Verification', 
       href: '/admin/kyc', 
@@ -71,13 +72,14 @@ export function AdminSidebar() {
       badge: null,
       description: 'Identity verification'
     },
-    { 
-      name: 'Promotions', 
-      href: '/admin/promotions', 
-      icon: Gift,
-      badge: null,
-      description: 'Manage bonuses & offers'
-    },
+    // Hidden - Promotions
+    // { 
+    //   name: 'Promotions', 
+    //   href: '/admin/promotions', 
+    //   icon: Gift,
+    //   badge: null,
+    //   description: 'Manage bonuses & offers'
+    // },
     { 
       name: 'Support Tickets', 
       href: '/admin/support', 

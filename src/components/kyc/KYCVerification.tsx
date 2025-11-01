@@ -127,8 +127,8 @@ export function KYCVerificationView() {
         throw new Error('Failed to submit KYC');
       }
 
-      const data = await response.json();
-      setKycStatus(data.kycStatus);
+      const result = await response.json();
+      setKycStatus(result.kycStatus);
       setStep(2);
       toast.success('KYC documents submitted! Now verify your email.');
     } catch (error) {
