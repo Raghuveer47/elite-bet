@@ -262,8 +262,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       const useBackend = (import.meta as any).env.VITE_USE_BACKEND_AUTH === 'true';
       let backendDeposits: any[] = [];
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
-        const backendResponse = await fetch(`${backendUrl}/admin/pending-deposits`);
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const backendResponse = await fetch(`${backendUrl}/api/betting/admin/pending-deposits`);
         if (backendResponse.ok) {
           const backendData = await backendResponse.json();
           if (backendData.success && backendData.deposits) {
@@ -277,11 +277,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
       // Load users from MongoDB backend directly
       let loadedUsers: UserManagement[] = [];
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       
       try {
         // Fetch all users from MongoDB backend
-        const usersResponse = await fetch(`${backendUrl}/admin/users`);
+        const usersResponse = await fetch(`${backendUrl}/api/betting/admin/users`);
         if (usersResponse.ok) {
           const usersData = await usersResponse.json();
           if (usersData.success && usersData.users && usersData.users.length > 0) {
@@ -342,7 +342,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       
       try {
         // Fetch all transactions from MongoDB backend
-        const transactionsResponse = await fetch(`${backendUrl}/admin/transactions`);
+        const transactionsResponse = await fetch(`${backendUrl}/api/betting/admin/transactions`);
         if (transactionsResponse.ok) {
           const txData = await transactionsResponse.json();
           if (txData.success && txData.transactions && txData.transactions.length > 0) {
@@ -585,10 +585,10 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('AdminContext: Updating user balance:', userId, balance);
       // Backend balance adjustment uses delta amount
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       const current = users.find(u => u.id === userId)?.balance || 0;
       const delta = balance - current;
-      const resp = await fetch(`${backendUrl}/balance/update`, {
+      const resp = await fetch(`${backendUrl}/api/betting/balance/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, amount: delta, reason: 'Admin balance update' })
@@ -639,8 +639,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       const tx = transactions.find(t => t.id === transactionId);
       if (!tx) throw new Error('Transaction not found');
 
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
-      const resp = await fetch(`${backendUrl}/admin/approve-withdrawal/${transactionId}`, {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const resp = await fetch(`${backendUrl}/api/betting/admin/approve-withdrawal/${transactionId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: Math.abs(tx.amount), userId: tx.userId })
@@ -661,8 +661,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const rejectWithdrawal = async (transactionId: string, reason: string) => {
     try {
       console.log('AdminContext: Rejecting withdrawal (backend):', transactionId, reason);
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
-      const resp = await fetch(`${backendUrl}/admin/reject-withdrawal/${transactionId}`, { method: 'POST' });
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const resp = await fetch(`${backendUrl}/api/betting/admin/reject-withdrawal/${transactionId}`, { method: 'POST' });
       if (!resp.ok) throw new Error('Backend rejection failed');
       setPendingPayments(prev => prev.filter(payment => payment.id !== transactionId));
       setTransactions(prev => prev.map(tx => tx.id === transactionId ? { ...tx, status: 'failed', completedAt: new Date() } : tx));
@@ -685,9 +685,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Try MongoDB backend first
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       try {
-        const backendResponse = await fetch(`${backendUrl}/admin/approve-deposit/${paymentId}`, {
+        const backendResponse = await fetch(`${backendUrl}/api/betting/admin/approve-deposit/${paymentId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -824,8 +824,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Payment not found');
       }
       // Backend: mark deposit as failed
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
-      const resp = await fetch(`${backendUrl}/admin/reject-deposit/${paymentId}`, { method: 'POST' });
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const resp = await fetch(`${backendUrl}/api/betting/admin/reject-deposit/${paymentId}`, { method: 'POST' });
       if (!resp.ok) throw new Error('Backend rejection failed');
 
       setPendingPayments(prev => prev.filter(p => p.id !== paymentId));

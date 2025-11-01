@@ -1,18 +1,22 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { ArrowUpRight, AlertCircle, CheckCircle, Shield } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { useWallet } from '../../contexts/SupabaseWalletContext';
-import { PaymentMethod } from '../../types/wallet';
 import { formatCurrency } from '../../lib/utils';
 
 export function WithdrawForm() {
-  const { paymentMethods, limits, stats, submitManualWithdraw, getBalance, getAvailableBalance, isLoading, error } = useWallet();
+  const { limits, stats, submitManualWithdraw, getBalance, getAvailableBalance, isLoading, error } = useWallet();
   const [amount, setAmount] = useState('');
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
-  const [destination, setDestination] = useState('');
+  
+  // Bank details fields
+  const [accountHolderName, setAccountHolderName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [ifscCode, setIfscCode] = useState('');
+  const [upiId, setUpiId] = useState('');
+  
   const [success, setSuccess] = useState<string | null>(null);
 
   const currentBalance = getBalance('USD');
@@ -20,8 +24,30 @@ export function WithdrawForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedMethod || !amount || !destination) {
-      toast.error('Please fill in all required fields');
+    
+    // Validate required fields
+    if (!amount) {
+      toast.error('Please enter withdrawal amount');
+      return;
+    }
+    
+    if (!accountHolderName.trim()) {
+      toast.error('Please enter account holder name');
+      return;
+    }
+    
+    if (!bankAccountNumber.trim()) {
+      toast.error('Please enter bank account number');
+      return;
+    }
+    
+    if (!ifscCode.trim()) {
+      toast.error('Please enter IFSC code');
+      return;
+    }
+    
+    if (!upiId.trim()) {
+      toast.error('Please enter UPI ID');
       return;
     }
 
@@ -44,13 +70,22 @@ export function WithdrawForm() {
       toast.error(`Daily withdrawal limit of ${formatCurrency(limits.dailyWithdrawLimit)} would be exceeded`);
       return;
     }
+    
     try {
       setSuccess(null);
       await submitManualWithdraw({
         amount: parseFloat(amount),
         currency: 'INR',
-        method: selectedMethod!.id,
-        destination
+        method: 'bank_transfer',
+        destination: `${accountHolderName} - ${bankAccountNumber}`,
+        metadata: {
+          bankDetails: {
+            accountHolderName,
+            bankAccountNumber,
+            ifscCode,
+            upiId
+          }
+        }
       });
       
       setSuccess('Withdrawal request submitted successfully! Funds have been reserved and admin will process your request within 24-48 hours.');
@@ -58,22 +93,13 @@ export function WithdrawForm() {
       
       // Reset form
       setAmount('');
-      setSelectedMethod(null);
-      setDestination('');
+      setAccountHolderName('');
+      setBankAccountNumber('');
+      setIfscCode('');
+      setUpiId('');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Withdrawal submission failed';
       toast.error(errorMessage);
-    }
-  };
-
-  const getDestinationPlaceholder = (method: PaymentMethod | null): string => {
-    if (!method) return 'Select payment method first';
-    switch (method.type) {
-      case 'card': return 'Card ending in 1234';
-      case 'bank': return 'Your bank account details';
-      case 'ewallet': return 'PayPal email or account';
-      case 'crypto': return 'Wallet address';
-      default: return 'Destination';
     }
   };
 
@@ -135,50 +161,45 @@ export function WithdrawForm() {
           disabled={isLoading}
         />
 
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-3">Withdrawal Method</label>
-          <div className="space-y-2">
-            {paymentMethods.filter(m => m.available).map((method) => (
-              <label 
-                key={method.id} 
-                className={`flex items-center p-4 rounded-lg cursor-pointer transition-all duration-200 ${
-                  selectedMethod?.id === method.id 
-                    ? 'bg-blue-600/20 border-2 border-blue-500' 
-                    : 'bg-slate-700 border-2 border-transparent hover:bg-slate-600'
-                }`}
-              >
-                <input 
-                  type="radio" 
-                  name="withdrawMethod" 
-                  value={method.id}
-                  checked={selectedMethod?.id === method.id}
-                  onChange={() => setSelectedMethod(method)}
-                  className="sr-only"
-                  disabled={isLoading}
-                />
-                <div className="text-2xl mr-3">{method.icon}</div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{method.name}</span>
-                    <span className="text-sm text-slate-400">{method.processingTime}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-slate-400">
-                    <span>Admin will process manually</span>
-                    <span>Limit: {formatCurrency(method.minAmount)} - {formatCurrency(method.maxAmount)}</span>
-                  </div>
-                </div>
-              </label>
-            ))}
-          </div>
-        </div>
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-slate-300">Bank Account Details</h4>
+          
+          <Input
+            label="Account Holder Name"
+            value={accountHolderName}
+            onChange={(e) => setAccountHolderName(e.target.value)}
+            placeholder="Enter full name as per bank account"
+            disabled={isLoading}
+            required
+          />
 
-        <Input
-          label="Bank Account Details"
-          value={destination}
-          onChange={(e) => setDestination(e.target.value)}
-          placeholder={getDestinationPlaceholder(selectedMethod)}
-          disabled={isLoading}
-        />
+          <Input
+            label="Bank Account Number"
+            value={bankAccountNumber}
+            onChange={(e) => setBankAccountNumber(e.target.value)}
+            placeholder="Enter your bank account number"
+            disabled={isLoading}
+            required
+          />
+
+          <Input
+            label="IFSC Code"
+            value={ifscCode}
+            onChange={(e) => setIfscCode(e.target.value.toUpperCase())}
+            placeholder="Enter IFSC code (e.g., SBIN0001234)"
+            disabled={isLoading}
+            required
+          />
+
+          <Input
+            label="UPI ID"
+            value={upiId}
+            onChange={(e) => setUpiId(e.target.value)}
+            placeholder="Enter UPI ID (e.g., yourname@paytm)"
+            disabled={isLoading}
+            required
+          />
+        </div>
 
         <Button
           type="submit"
@@ -186,8 +207,11 @@ export function WithdrawForm() {
           className="w-full"
           disabled={
             isLoading || 
-            !selectedMethod || 
-            !destination ||
+            !amount ||
+            !accountHolderName.trim() ||
+            !bankAccountNumber.trim() ||
+            !ifscCode.trim() ||
+            !upiId.trim() ||
             amountValue < limits.minWithdraw || 
             amountValue > availableBalance
           }

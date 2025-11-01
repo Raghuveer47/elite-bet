@@ -38,6 +38,60 @@ export class SupportService {
   }
 
   static async createTicket(userId: string, subject: string, description: string, category: SupportTicket['category']): Promise<SupportTicket> {
+    const useBackend = (import.meta as any).env.VITE_USE_BACKEND_AUTH === 'true';
+    
+    // Try backend first
+    if (useBackend) {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const response = await fetch(`${backendUrl}/api/support/tickets`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            subject,
+            description,
+            category
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('SupportService: Backend ticket created:', result);
+
+          const ticket: SupportTicket = {
+            id: result.ticket.id,
+            userId: result.ticket.userId,
+            subject: result.ticket.subject,
+            description: result.ticket.description,
+            category: result.ticket.category,
+            priority: result.ticket.priority,
+            status: result.ticket.status,
+            messages: result.ticket.messages.map((msg: any) => ({
+              id: msg._id || `msg_${Date.now()}`,
+              ticketId: result.ticket.id,
+              senderId: msg.senderId,
+              senderType: msg.senderType,
+              message: msg.message,
+              sentAt: new Date(msg.sentAt)
+            })),
+            createdAt: new Date(result.ticket.createdAt),
+            updatedAt: new Date(result.ticket.updatedAt)
+          };
+
+          // Also save to local storage for offline access
+          const supportData = this.loadSupportData();
+          supportData.tickets = [ticket, ...(supportData.tickets || [])];
+          this.saveSupportData(supportData);
+
+          return ticket;
+        }
+      } catch (error) {
+        console.error('SupportService: Backend ticket creation failed:', error);
+      }
+    }
+
+    // Fallback to local storage
     const ticket: SupportTicket = {
       id: `ticket_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       userId,
@@ -74,6 +128,53 @@ export class SupportService {
   }
 
   static async addMessage(ticketId: string, senderId: string, senderType: 'user' | 'admin', message: string): Promise<SupportMessage> {
+    const useBackend = (import.meta as any).env.VITE_USE_BACKEND_AUTH === 'true';
+    
+    // Try backend first
+    if (useBackend) {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const response = await fetch(`${backendUrl}/api/support/tickets/${ticketId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            senderId,
+            senderType,
+            message
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('SupportService: Message added to backend:', result);
+
+          const addedMessage: SupportMessage = {
+            id: result.ticket.messages[result.ticket.messages.length - 1]._id || `msg_${Date.now()}`,
+            ticketId: result.ticket.id,
+            senderId,
+            senderType,
+            message,
+            sentAt: new Date(result.ticket.messages[result.ticket.messages.length - 1].sentAt)
+          };
+
+          // Also update local storage
+          const supportData = this.loadSupportData();
+          const ticket = supportData.tickets?.find((t: SupportTicket) => t.id === ticketId);
+          if (ticket) {
+            ticket.messages = [...ticket.messages, addedMessage];
+            ticket.updatedAt = new Date(result.ticket.updatedAt);
+            ticket.status = result.ticket.status;
+            this.saveSupportData(supportData);
+          }
+
+          return addedMessage;
+        }
+      } catch (error) {
+        console.error('SupportService: Backend message add failed:', error);
+      }
+    }
+
+    // Fallback to local storage
     const newMessage: SupportMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       ticketId,
@@ -102,17 +203,210 @@ export class SupportService {
     return newMessage;
   }
 
-  static getUserTickets(userId: string): SupportTicket[] {
+  static async getUserTickets(userId: string): Promise<SupportTicket[]> {
+    const useBackend = (import.meta as any).env.VITE_USE_BACKEND_AUTH === 'true';
+    
+    // Try backend first
+    if (useBackend) {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const response = await fetch(`${backendUrl}/api/support/tickets/${userId}`);
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.tickets) {
+            const tickets: SupportTicket[] = result.tickets.map((ticket: any) => ({
+              id: ticket.id,
+              userId: ticket.userId,
+              subject: ticket.subject,
+              description: ticket.description,
+              category: ticket.category,
+              priority: ticket.priority,
+              status: ticket.status,
+              assignedTo: ticket.assignedTo,
+              messages: ticket.messages.map((msg: any) => ({
+                id: msg._id || `msg_${Date.now()}`,
+                ticketId: ticket.id,
+                senderId: msg.senderId,
+                senderType: msg.senderType,
+                message: msg.message,
+                sentAt: new Date(msg.sentAt)
+              })),
+              createdAt: new Date(ticket.createdAt),
+              updatedAt: new Date(ticket.updatedAt),
+              resolvedAt: ticket.resolvedAt ? new Date(ticket.resolvedAt) : undefined,
+              closedAt: ticket.closedAt ? new Date(ticket.closedAt) : undefined
+            }));
+
+            // Sync to local storage
+            const supportData = this.loadSupportData();
+            supportData.tickets = tickets;
+            this.saveSupportData(supportData);
+
+            return tickets;
+          }
+        }
+      } catch (error) {
+        console.error('SupportService: Failed to fetch tickets from backend:', error);
+      }
+    }
+
+    // Fallback to local storage
     const supportData = this.loadSupportData();
     return (supportData.tickets || []).filter((t: SupportTicket) => t.userId === userId);
   }
 
-  static getAllTickets(): SupportTicket[] {
+  static async getAllTickets(): Promise<SupportTicket[]> {
+    const useBackend = (import.meta as any).env.VITE_USE_BACKEND_AUTH === 'true';
+    
+    // Try backend first
+    if (useBackend) {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const response = await fetch(`${backendUrl}/api/support/admin/tickets`);
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.tickets) {
+            const tickets: SupportTicket[] = result.tickets.map((ticket: any) => ({
+              id: ticket.id,
+              userId: ticket.userId,
+              subject: ticket.subject,
+              description: ticket.description,
+              category: ticket.category,
+              priority: ticket.priority,
+              status: ticket.status,
+              assignedTo: ticket.assignedTo,
+              messages: ticket.messages.map((msg: any) => ({
+                id: msg._id || `msg_${Date.now()}`,
+                ticketId: ticket.id,
+                senderId: msg.senderId,
+                senderType: msg.senderType,
+                message: msg.message,
+                sentAt: new Date(msg.sentAt)
+              })),
+              createdAt: new Date(ticket.createdAt),
+              updatedAt: new Date(ticket.updatedAt),
+              resolvedAt: ticket.resolvedAt ? new Date(ticket.resolvedAt) : undefined,
+              closedAt: ticket.closedAt ? new Date(ticket.closedAt) : undefined
+            }));
+
+            // Sync to local storage
+            const supportData = this.loadSupportData();
+            supportData.tickets = tickets;
+            this.saveSupportData(supportData);
+
+            return tickets;
+          }
+        }
+      } catch (error) {
+        console.error('SupportService: Failed to fetch all tickets from backend:', error);
+      }
+    }
+
+    // Fallback to local storage
     const supportData = this.loadSupportData();
     return supportData.tickets || [];
   }
 
+  static async updateTicketStatus(ticketId: string, status: SupportTicket['status'], assignedTo?: string): Promise<boolean> {
+    const useBackend = (import.meta as any).env.VITE_USE_BACKEND_AUTH === 'true';
+    
+    // Try backend first
+    if (useBackend) {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const response = await fetch(`${backendUrl}/api/support/admin/tickets/${ticketId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status, assignedTo })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('SupportService: Ticket status updated:', result);
+
+          // Update local storage
+          const supportData = this.loadSupportData();
+          const ticket = supportData.tickets?.find((t: SupportTicket) => t.id === ticketId);
+          if (ticket) {
+            ticket.status = status;
+            if (assignedTo !== undefined) ticket.assignedTo = assignedTo;
+            ticket.updatedAt = new Date(result.ticket.updatedAt);
+            if (result.ticket.resolvedAt) ticket.resolvedAt = new Date(result.ticket.resolvedAt);
+            if (result.ticket.closedAt) ticket.closedAt = new Date(result.ticket.closedAt);
+            this.saveSupportData(supportData);
+          }
+
+          return true;
+        }
+      } catch (error) {
+        console.error('SupportService: Status update failed:', error);
+      }
+    }
+
+    // Fallback to local storage
+    const supportData = this.loadSupportData();
+    const ticket = supportData.tickets?.find((t: SupportTicket) => t.id === ticketId);
+    if (ticket) {
+      ticket.status = status;
+      if (assignedTo !== undefined) ticket.assignedTo = assignedTo;
+      ticket.updatedAt = new Date();
+      if (status === 'resolved') ticket.resolvedAt = new Date();
+      if (status === 'closed') ticket.closedAt = new Date();
+      this.saveSupportData(supportData);
+      return true;
+    }
+
+    return false;
+  }
+
   static async startLiveChat(userId: string): Promise<LiveChat> {
+    const useBackend = (import.meta as any).env.VITE_USE_BACKEND_AUTH === 'true';
+    
+    // Try backend first
+    if (useBackend) {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const response = await fetch(`${backendUrl}/api/support/chat/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('SupportService: Live chat started:', result);
+
+          const chat: LiveChat = {
+            id: result.chat.id,
+            userId: result.chat.userId,
+            agentId: result.chat.agentId,
+            status: result.chat.status,
+            startedAt: new Date(result.chat.startedAt),
+            messages: result.chat.messages.map((msg: any) => ({
+              id: msg._id || `msg_${Date.now()}`,
+              chatId: result.chat.id,
+              senderId: msg.senderId,
+              senderType: msg.senderType,
+              message: msg.message,
+              timestamp: new Date(msg.timestamp)
+            }))
+          };
+
+          // Save to local storage
+          const supportData = this.loadSupportData();
+          supportData.chats = [chat, ...(supportData.chats || [])];
+          this.saveSupportData(supportData);
+
+          return chat;
+        }
+      } catch (error) {
+        console.error('SupportService: Live chat start failed:', error);
+      }
+    }
+
+    // Fallback to local storage
     const chat: LiveChat = {
       id: `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       userId,
@@ -134,29 +428,192 @@ export class SupportService {
     supportData.chats = [chat, ...(supportData.chats || [])];
     this.saveSupportData(supportData);
 
-    // Auto-assign to available agent after 2 seconds
+    // Auto-timeout after 2 minutes (show busy message)
     setTimeout(() => {
-      const agents = supportData.agents || [];
-      const availableAgent = agents.find((a: any) => a.status === 'online' && a.activeChats < 3);
-      
-      if (availableAgent) {
-        chat.agentId = availableAgent.id;
-        chat.status = 'active';
-        availableAgent.activeChats++;
-        
-        chat.messages.push({
-          id: `msg_${Date.now()}`,
-          chatId: chat.id,
-          senderId: availableAgent.id,
-          senderType: 'agent',
-          message: `Hi! I'm ${availableAgent.name}. How can I help you today?`,
-          timestamp: new Date()
-        });
-        
-        this.saveSupportData(supportData);
-      }
-    }, 2000);
+      chat.status = 'timeout';
+      chat.endedAt = new Date();
+      chat.messages.push({
+        id: `msg_${Date.now()}`,
+        chatId: chat.id,
+        senderId: 'system',
+        senderType: 'system',
+        message: 'All agents are currently busy. Please create a support ticket for assistance.',
+        timestamp: new Date()
+      });
+      this.saveSupportData(supportData);
+    }, 2 * 60 * 1000); // 2 minutes
 
     return chat;
+  }
+
+  static async getUserChats(userId: string): Promise<LiveChat[]> {
+    const useBackend = (import.meta as any).env.VITE_USE_BACKEND_AUTH === 'true';
+    
+    // Try backend first
+    if (useBackend) {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const response = await fetch(`${backendUrl}/api/support/chat/${userId}`);
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('SupportService: Loaded user chats:', result);
+
+          const chats: LiveChat[] = result.chats.map((chat: any) => ({
+            id: chat.id,
+            userId: chat.userId,
+            agentId: chat.agentId,
+            status: chat.status,
+            startedAt: new Date(chat.startedAt),
+            endedAt: chat.endedAt ? new Date(chat.endedAt) : undefined,
+            lastActivityAt: chat.lastActivityAt ? new Date(chat.lastActivityAt) : undefined,
+            messages: chat.messages.map((msg: any) => ({
+              id: msg._id || `msg_${Date.now()}`,
+              chatId: chat.id,
+              senderId: msg.senderId,
+              senderType: msg.senderType,
+              message: msg.message,
+              timestamp: new Date(msg.timestamp)
+            }))
+          }));
+
+          return chats;
+        }
+      } catch (error) {
+        console.error('SupportService: Failed to load user chats:', error);
+      }
+    }
+
+    // Fallback to local storage
+    const supportData = this.loadSupportData();
+    return (supportData.chats || []).filter((c: LiveChat) => c.userId === userId);
+  }
+
+  static async getAllLiveChats(): Promise<LiveChat[]> {
+    const useBackend = (import.meta as any).env.VITE_USE_BACKEND_AUTH === 'true';
+    
+    // Try backend first
+    if (useBackend) {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const response = await fetch(`${backendUrl}/api/support/admin/chats`);
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('SupportService: Loaded all chats:', result);
+
+          const chats: LiveChat[] = result.chats.map((chat: any) => ({
+            id: chat.id,
+            userId: chat.userId,
+            userName: chat.userName,
+            agentId: chat.agentId,
+            status: chat.status,
+            startedAt: new Date(chat.startedAt),
+            endedAt: chat.endedAt ? new Date(chat.endedAt) : undefined,
+            lastActivityAt: chat.lastActivityAt ? new Date(chat.lastActivityAt) : undefined,
+            messages: chat.messages.map((msg: any) => ({
+              id: msg._id || `msg_${Date.now()}`,
+              chatId: chat.id,
+              senderId: msg.senderId,
+              senderType: msg.senderType,
+              message: msg.message,
+              timestamp: new Date(msg.timestamp)
+            }))
+          }));
+
+          return chats;
+        }
+      } catch (error) {
+        console.error('SupportService: Failed to load all chats:', error);
+      }
+    }
+
+    // Fallback to local storage
+    const supportData = this.loadSupportData();
+    return supportData.chats || [];
+  }
+
+  static async addChatMessage(chatId: string, senderId: string, senderType: 'user' | 'agent', message: string): Promise<void> {
+    const useBackend = (import.meta as any).env.VITE_USE_BACKEND_AUTH === 'true';
+    
+    // Try backend first
+    if (useBackend) {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const response = await fetch(`${backendUrl}/api/support/chat/${chatId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            senderId,
+            senderType,
+            message
+          })
+        });
+
+        if (response.ok) {
+          console.log('SupportService: Chat message added');
+          return;
+        }
+      } catch (error) {
+        console.error('SupportService: Failed to add chat message:', error);
+      }
+    }
+
+    // Fallback to local storage
+    const supportData = this.loadSupportData();
+    const chat = supportData.chats?.find((c: LiveChat) => c.id === chatId);
+    
+    if (chat) {
+      chat.messages.push({
+        id: `msg_${Date.now()}`,
+        chatId,
+        senderId,
+        senderType,
+        message,
+        timestamp: new Date()
+      });
+
+      if (senderType === 'agent' && chat.status === 'waiting') {
+        chat.status = 'active';
+        chat.agentId = senderId;
+      }
+
+      chat.lastActivityAt = new Date();
+      this.saveSupportData(supportData);
+    }
+  }
+
+  static async endLiveChat(chatId: string, endedBy?: string): Promise<void> {
+    const useBackend = (import.meta as any).env.VITE_USE_BACKEND_AUTH === 'true';
+    
+    // Try backend first
+    if (useBackend) {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const response = await fetch(`${backendUrl}/api/support/chat/${chatId}/end`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endedBy })
+        });
+
+        if (response.ok) {
+          console.log('SupportService: Chat ended by', endedBy);
+          return;
+        }
+      } catch (error) {
+        console.error('SupportService: Failed to end chat:', error);
+      }
+    }
+
+    // Fallback to local storage
+    const supportData = this.loadSupportData();
+    const chat = supportData.chats?.find((c: LiveChat) => c.id === chatId);
+    
+    if (chat) {
+      chat.status = 'ended';
+      chat.endedAt = new Date();
+      (chat as any).endedBy = endedBy;
+      this.saveSupportData(supportData);
+    }
   }
 }

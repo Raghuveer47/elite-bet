@@ -1,513 +1,500 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Shield, Upload, CheckCircle, XCircle, Clock, AlertTriangle, FileText, Image, Eye } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Shield, Upload, Phone, Mail, FileText, CheckCircle, XCircle, AlertCircle, Image as ImageIcon, X, Gift, Send } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { KYCService } from '../../services/kycService';
-import { KYCDocument, KYCVerification } from '../../types/kyc';
 import { useAuth } from '../../contexts/SupabaseAuthContext';
-import { formatDate } from '../../lib/utils';
 import toast from 'react-hot-toast';
 
 export function KYCVerificationView() {
-  const { user, updateUser } = useAuth();
-  const [documents, setDocuments] = useState<KYCDocument[]>([]);
-  const [verification, setVerification] = useState<KYCVerification | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [uploadingType, setUploadingType] = useState<string | null>(null);
-  const [showDocumentModal, setShowDocumentModal] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<KYCDocument | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+  const [kycStatus, setKycStatus] = useState<'not_submitted' | 'pending' | 'approved' | 'rejected'>('not_submitted');
+  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(1);
+  
+  // Form data
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [documentType, setDocumentType] = useState<'aadhaar' | 'pan'>('aadhaar');
+  const [documentNumber, setDocumentNumber] = useState('');
+  const [documentImage, setDocumentImage] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  
+  // OTP
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
 
-  // Load KYC data when component mounts or user changes
   useEffect(() => {
     if (user) {
-      console.log('KYCVerification: Loading KYC data for user:', user.id);
-      loadKYCData();
+      loadKYCStatus();
     }
-  }, [user?.id]);
+  }, [user]);
 
-  // Listen for KYC status updates from admin
-  useEffect(() => {
-    const handleKYCUpdates = (e: StorageEvent) => {
-      if (!user) return;
-
-      if (e.key === 'elitebet_kyc_approved' && e.newValue) {
-        try {
-          const data = JSON.parse(e.newValue);
-          if (data.userId === user.id) {
-            console.log('KYCVerification: Received approval notification');
-            updateUser({ isVerified: true });
-            toast.success('🎉 KYC Verification Approved! Your account is now fully verified.');
-            loadKYCData(); // Refresh data
-          }
-        } catch (error) {
-          console.error('KYCVerification: Failed to parse approval event:', error);
-        }
-      }
-
-      if (e.key === 'elitebet_kyc_rejected' && e.newValue) {
-        try {
-          const data = JSON.parse(e.newValue);
-          if (data.userId === user.id) {
-            console.log('KYCVerification: Received rejection notification');
-            toast.error(`❌ KYC Verification Rejected: ${data.reason}`);
-            loadKYCData(); // Refresh data
-          }
-        } catch (error) {
-          console.error('KYCVerification: Failed to parse rejection event:', error);
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleKYCUpdates);
-    return () => window.removeEventListener('storage', handleKYCUpdates);
-  }, [user, updateUser]);
-
-  const loadKYCData = () => {
-    if (!user) return;
-    
+  const loadKYCStatus = async () => {
     try {
-      const userDocs = KYCService.getUserDocuments(user.id);
-      const userVerification = KYCService.getUserVerification(user.id);
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/kyc/status/${user!.id}`);
       
-      console.log('KYCVerification: Loaded data:', {
-        documents: userDocs.length,
-        verification: userVerification?.status || 'none'
-      });
-      
-      setDocuments(userDocs);
-      setVerification(userVerification);
+      if (response.ok) {
+        const data = await response.json();
+        setKycStatus(data.kycStatus);
+        
+        // Only go to step 2 if documents were actually submitted
+        if (data.kycStatus === 'pending' && data.kycData?.submittedAt) {
+          setStep(2);
+          // Pre-fill phone if exists
+          if (data.kycData.phoneNumber) {
+            setPhoneNumber(data.kycData.phoneNumber);
+          }
+        }
+      }
     } catch (error) {
-      console.error('KYCVerification: Failed to load KYC data:', error);
+      console.error('Failed to load KYC status:', error);
     }
   };
 
-  const documentTypes = KYCService.getRequiredDocuments();
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const handleFileUpload = async (type: KYCDocument['type']) => {
-    const file = fileInputRef.current?.files?.[0];
-    if (!file || !user) {
-      console.log('KYCVerification: No file selected or user not found');
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
       return;
     }
-    
-    console.log('KYCVerification: Starting file upload:', { type, fileName: file.name, size: file.size });
 
-    setUploadingType(type);
-    setIsLoading(true);
-
-    try {
-      const document = await KYCService.uploadDocument(user.id, type, file);
-      
-      // Update local state
-      setDocuments(prev => {
-        const filtered = prev.filter(d => d.type !== type);
-        return [document, ...filtered];
-      });
-      
-      console.log('KYCVerification: Document uploaded successfully:', document.id);
-      toast.success(`${KYCService.getDocumentTypeDisplayName(type)} uploaded successfully`);
-      
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      console.error('KYCVerification: Upload failed:', errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setIsLoading(false);
-      setUploadingType(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB');
+      return;
     }
-  };
 
-  const submitVerification = async () => {
-    if (!user) return;
+    setUploadingImage(true);
+    try {
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dy9zlgjh6';
+      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'ml_default';
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', uploadPreset);
+      formData.append('folder', 'kyc_documents');
 
-    const requiredDocs = documentTypes.filter(dt => dt.required);
-    const uploadedRequiredDocs = documents.filter(doc => 
-      requiredDocs.some(rd => rd.type === doc.type) && doc.status !== 'rejected'
-    );
-
-    if (uploadedRequiredDocs.length < requiredDocs.length) {
-      const missingDocs = requiredDocs.filter(rd => 
-        !documents.some(doc => doc.type === rd.type && doc.status !== 'rejected')
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        {
+          method: 'POST',
+          body: formData
+        }
       );
-      toast.error(`Please upload required documents: ${missingDocs.map(d => d.name).join(', ')}`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Upload failed');
+      }
+
+      const data = await response.json();
+      setDocumentImage(data.secure_url);
+      setImagePreview(data.secure_url);
+      toast.success('Document uploaded successfully');
+    } catch (error) {
+      console.error('Image upload error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleSubmitKYC = async () => {
+    if (!phoneNumber || !documentNumber || !documentImage) {
+      toast.error('Please fill all fields and upload document');
       return;
     }
 
-    setIsLoading(true);
+    setLoading(true);
     try {
-      console.log('KYCVerification: Submitting verification for user:', user.id);
-      const newVerification = await KYCService.submitVerification(user.id, 'enhanced');
-      setVerification(newVerification);
-      console.log('KYCVerification: Verification submitted successfully:', newVerification.id);
-      toast.success('Verification submitted for review! You will be notified once reviewed.');
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/kyc/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user!.id,
+          phoneNumber,
+          documentType,
+          documentNumber,
+          documentImage
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit KYC');
+      }
+
+      const data = await response.json();
+      setKycStatus(data.kycStatus);
+      setStep(2);
+      toast.success('KYC documents submitted! Now verify your email.');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Submission failed';
-      console.error('KYCVerification: Submission failed:', errorMessage);
-      toast.error(errorMessage);
+      toast.error('Failed to submit KYC');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const getDocumentStatus = (type: KYCDocument['type']) => {
-    const doc = documents.find(d => d.type === type);
-    return doc?.status || 'not_uploaded';
-  };
+  const handleSendOTP = async () => {
+    setLoading(true);
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/kyc/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user!.id })
+      });
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved': return <CheckCircle className="w-5 h-5 text-green-400" />;
-      case 'rejected': return <XCircle className="w-5 h-5 text-red-400" />;
-      case 'pending': return <Clock className="w-5 h-5 text-yellow-400" />;
-      default: return <Upload className="w-5 h-5 text-slate-400" />;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to send OTP');
+      }
+
+      const data = await response.json();
+      setOtpSent(true);
+      toast.success('OTP sent! Check your email at ' + user!.email);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to send OTP');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    return KYCService.getDocumentStatusColor(status as KYCDocument['status']);
+  const handleVerifyOTP = async () => {
+    if (!otp || otp.length !== 6) {
+      toast.error('Please enter 6-digit OTP');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/kyc/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user!.id,
+          otp
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Invalid OTP');
+      }
+
+      const data = await response.json();
+      setKycStatus(data.kycStatus);
+      toast.success(data.message, { duration: 5000 });
+      
+      // Refresh page to show new balance
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to verify OTP');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const viewDocument = (document: KYCDocument) => {
-    setSelectedDocument(document);
-    setShowDocumentModal(true);
-  };
-
-  const canSubmitVerification = () => {
-    const requiredDocs = documentTypes.filter(dt => dt.required);
-    const uploadedRequiredDocs = documents.filter(doc => 
-      requiredDocs.some(rd => rd.type === doc.type) && doc.status !== 'rejected'
-    );
-    return uploadedRequiredDocs.length >= requiredDocs.length && !verification;
-  };
+  if (!user) return null;
 
   return (
     <div className="space-y-6">
-      {/* KYC Status Overview */}
+      {/* Status Overview */}
       <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
         <div className="flex items-center space-x-2 mb-4">
           <Shield className="w-6 h-6 text-blue-400" />
           <h3 className="text-xl font-semibold">Account Verification Status</h3>
         </div>
 
-        {user?.isVerified ? (
-          <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-4">
-            <div className="flex items-center space-x-2 mb-2">
-              <CheckCircle className="w-6 h-6 text-green-400" />
-              <h4 className="font-medium text-green-400">Account Fully Verified ✅</h4>
-            </div>
-            <p className="text-slate-300">
-              Your account has been successfully verified. You now have access to all platform features 
-              including higher limits and priority support.
-            </p>
-          </div>
-        ) : verification ? (
-          <div className={`rounded-lg p-4 mb-4 border ${KYCService.getVerificationStatusColor(verification.status)}`}>
-            <div className="flex items-center space-x-2 mb-2">
-              {getStatusIcon(verification.status)}
-              <h4 className="font-medium">
-                Verification Status: {verification.status.replace('_', ' ').toUpperCase()}
-              </h4>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        {kycStatus === 'approved' && (
+          <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-6">
+            <div className="flex items-center space-x-3">
+              <CheckCircle className="w-8 h-8 text-green-400" />
               <div>
-                <p className="text-slate-400">Level: <span className="text-white font-medium capitalize">{verification.verificationLevel}</span></p>
-                <p className="text-slate-400">Submitted: <span className="text-white">{formatDate(verification.createdAt)}</span></p>
-              </div>
-              <div>
-                <p className="text-slate-400">Documents: <span className="text-white">{verification.documents.length}</span></p>
-                {verification.reviewedAt && (
-                  <p className="text-slate-400">Reviewed: <span className="text-white">{formatDate(verification.reviewedAt)}</span></p>
-                )}
+                <h4 className="text-lg font-semibold text-green-400">Account Fully Verified ✅</h4>
+                <p className="text-slate-300">Your account is fully verified. You have access to all features!</p>
               </div>
             </div>
-            {verification.rejectionReason && (
-              <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                <p className="text-sm text-red-400 font-medium">Rejection Reason:</p>
-                <p className="text-sm text-slate-300">{verification.rejectionReason}</p>
-              </div>
-            )}
           </div>
-        ) : (
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-4">
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="w-5 h-5 text-yellow-400" />
-              <p className="text-yellow-400 font-medium">Account verification required</p>
+        )}
+
+        {kycStatus === 'rejected' && (
+          <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-6">
+            <div className="flex items-center space-x-3">
+              <XCircle className="w-8 h-8 text-red-400" />
+              <div>
+                <h4 className="text-lg font-semibold text-red-400">KYC Rejected</h4>
+                <p className="text-slate-300">Please contact support or resubmit your documents</p>
+              </div>
             </div>
-            <p className="text-slate-300 mt-1">
-              Please upload the required documents to verify your account and unlock all features.
-            </p>
+          </div>
+        )}
+
+        {kycStatus === 'pending' && step === 2 && (
+          <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-6">
+            <div className="flex items-center space-x-3">
+              <AlertCircle className="w-8 h-8 text-yellow-400" />
+              <div>
+                <h4 className="text-lg font-semibold text-yellow-400">Email Verification Required</h4>
+                <p className="text-slate-300">Complete email verification to receive ₹100 bonus</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {kycStatus === 'not_submitted' && (
+          <div className="bg-gradient-to-r from-red-600/20 to-orange-600/20 border border-red-500/30 rounded-lg p-6">
+            <div className="flex items-center space-x-3">
+              <Gift className="w-8 h-8 text-orange-400" />
+              <div>
+                <h4 className="text-lg font-semibold text-white">Get ₹100 Verification Bonus!</h4>
+                <p className="text-slate-300">Complete KYC verification and receive instant ₹100 in your account</p>
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Document Upload Section */}
-      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-        <h4 className="text-lg font-semibold text-white mb-6">Document Upload</h4>
-        
-        <div className="space-y-4">
-          {documentTypes.map(docType => {
-            const status = getDocumentStatus(docType.type as KYCDocument['type']);
-            const isUploading = uploadingType === docType.type;
-            const document = documents.find(d => d.type === docType.type);
-            
-            return (
-              <div key={docType.type} className="bg-slate-700 rounded-lg p-4 border border-slate-600">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    {getStatusIcon(status)}
-                    <div>
-                      <h5 className="font-medium text-white">{docType.name}</h5>
-                      {docType.required && <span className="text-red-400 text-xs font-medium">*Required</span>}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`text-xs px-2 py-1 rounded-full border ${getStatusColor(status)}`}>
-                      {status.replace('_', ' ').toUpperCase()}
-                    </span>
-                    {document && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => viewDocument(document)}
-                        title="View Document"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                
-                <p className="text-sm text-slate-400 mb-4">{docType.description}</p>
-                
-                {document && document.rejectionReason && (
-                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
-                    <p className="text-sm text-red-400 font-medium">Rejection Reason:</p>
-                    <p className="text-sm text-slate-300">{document.rejectionReason}</p>
-                  </div>
-                )}
-                
-                {(status === 'not_uploaded' || status === 'rejected') ? (
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={() => handleFileUpload(docType.type as KYCDocument['type'])}
-                      ref={fileInputRef}
-                      style={{ display: 'none' }}
-                      disabled={isLoading}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isLoading}
-                      className="flex items-center space-x-2"
-                    >
-                      {isUploading ? (
-                        <>
-                          <LoadingSpinner size="sm" />
-                          <span>Uploading...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4" />
-                          <span>Upload {docType.name}</span>
-                        </>
-                      )}
-                    </Button>
-                    {status === 'rejected' && (
-                      <span className="text-sm text-yellow-400">Please upload a new document</span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-400" />
-                    <span className="text-sm text-green-400 font-medium">Document uploaded</span>
-                    {document && (
-                      <span className="text-xs text-slate-400">
-                        ({(document.fileSize / 1024 / 1024).toFixed(2)} MB)
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Submit Verification */}
-      {canSubmitVerification() && (
+      {/* KYC Form - Step 1: Submit Documents */}
+      {(kycStatus === 'not_submitted' || kycStatus === 'rejected' || (kycStatus === 'pending' && step === 1)) && (
         <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-          <h4 className="text-lg font-semibold text-white mb-4">Submit for Verification</h4>
+          <h4 className="text-lg font-semibold text-white mb-6">Submit KYC Documents</h4>
           
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
-            <div className="flex items-start space-x-2">
-              <Shield className="w-5 h-5 text-blue-400 mt-0.5" />
-              <div>
-                <h5 className="font-medium text-blue-400 mb-1">Verification Process</h5>
-                <p className="text-sm text-slate-300">
-                  Once you submit your documents, our compliance team will review them within 24-48 hours. 
-                  You'll receive a notification once the review is complete.
-                </p>
-              </div>
+          {/* Phone Number */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              <Phone className="w-4 h-4 inline mr-2" />
+              Phone Number
+            </label>
+            <Input
+              type="tel"
+              placeholder="Enter your 10-digit phone number"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              maxLength={10}
+            />
+          </div>
+
+          {/* Document Type */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-300 mb-3">
+              <FileText className="w-4 h-4 inline mr-2" />
+              Select Document Type
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => setDocumentType('aadhaar')}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  documentType === 'aadhaar'
+                    ? 'border-red-500 bg-red-500/20'
+                    : 'border-slate-600 bg-slate-700 hover:border-slate-500'
+                }`}
+              >
+                <span className="text-white font-medium">Aadhaar Card</span>
+              </button>
+              <button
+                onClick={() => setDocumentType('pan')}
+                className={`p-4 rounded-lg border-2 transition-all ${
+                  documentType === 'pan'
+                    ? 'border-red-500 bg-red-500/20'
+                    : 'border-slate-600 bg-slate-700 hover:border-slate-500'
+                }`}
+              >
+                <span className="text-white font-medium">PAN Card</span>
+              </button>
             </div>
           </div>
 
-          <Button
-            onClick={submitVerification}
-            disabled={isLoading}
-            className="w-full"
-          >
-            {isLoading ? (
-              <div className="flex items-center justify-center space-x-2">
-                <LoadingSpinner size="sm" />
-                <span>Submitting for Review...</span>
+          {/* Document Number */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              {documentType === 'aadhaar' ? 'Aadhaar Number (12 digits)' : 'PAN Number (10 characters)'}
+            </label>
+            <Input
+              type="text"
+              placeholder={documentType === 'aadhaar' ? 'XXXX XXXX XXXX' : 'ABCDE1234F'}
+              value={documentNumber}
+              onChange={(e) => setDocumentNumber(e.target.value.toUpperCase().slice(0, documentType === 'aadhaar' ? 12 : 10))}
+              maxLength={documentType === 'aadhaar' ? 12 : 10}
+            />
+          </div>
+
+          {/* Document Upload */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-300 mb-3">
+              <Upload className="w-4 h-4 inline mr-2" />
+              Upload Document Image
+            </label>
+            
+            {imagePreview ? (
+              <div className="relative inline-block">
+                <img 
+                  src={imagePreview} 
+                  alt="Document preview" 
+                  className="rounded-lg max-h-48 border-2 border-green-500"
+                />
+                <button
+                  onClick={() => {
+                    setImagePreview(null);
+                    setDocumentImage(null);
+                  }}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             ) : (
+              <label className="block cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  disabled={uploadingImage}
+                />
+                <div className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center hover:border-red-500 transition-colors">
+                  {uploadingImage ? (
+                    <LoadingSpinner />
+                  ) : (
+                    <>
+                      <ImageIcon className="w-12 h-12 text-slate-500 mx-auto mb-2" />
+                      <p className="text-slate-400">Click to upload {documentType === 'aadhaar' ? 'Aadhaar' : 'PAN'} card</p>
+                      <p className="text-xs text-slate-500 mt-1">JPG, PNG (Max 5MB)</p>
+                    </>
+                  )}
+                </div>
+              </label>
+            )}
+          </div>
+
+          <Button
+            onClick={handleSubmitKYC}
+            disabled={loading || !phoneNumber || !documentNumber || !documentImage || phoneNumber.length !== 10}
+            className="w-full bg-gradient-to-r from-red-600 to-orange-600"
+          >
+            {loading ? <LoadingSpinner size="sm" /> : (
               <>
-                <Shield className="w-5 h-5 mr-2" />
-                Submit for Verification
+                <Shield className="w-4 h-4 mr-2" />
+                Submit KYC Documents
               </>
             )}
           </Button>
         </div>
       )}
 
-      {/* Verification Benefits */}
-      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-        <h4 className="text-lg font-semibold text-white mb-4">Verification Benefits</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-4 h-4 text-green-400" />
-              <span className="text-sm text-slate-300">Increased deposit limits ($50,000)</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-4 h-4 text-green-400" />
-              <span className="text-sm text-slate-300">Faster withdrawal processing (24h)</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-4 h-4 text-green-400" />
-              <span className="text-sm text-slate-300">Access to VIP promotions</span>
-            </div>
+      {/* Step 2: Email OTP Verification */}
+      {kycStatus === 'pending' && step === 2 && (
+        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+          <h4 className="text-lg font-semibold text-white mb-6">
+            <Mail className="w-5 h-5 inline mr-2" />
+            Email Verification
+          </h4>
+          
+          <div className="bg-blue-500/20 border border-blue-500/50 rounded-lg p-4 mb-6">
+            <p className="text-slate-300 text-sm">
+              We'll send an OTP to your registered email: <span className="font-semibold text-white">{user.email}</span>
+            </p>
           </div>
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-4 h-4 text-green-400" />
-              <span className="text-sm text-slate-300">Enhanced account security</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-4 h-4 text-green-400" />
-              <span className="text-sm text-slate-300">Priority customer support</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-4 h-4 text-green-400" />
-              <span className="text-sm text-slate-300">Higher betting limits ($10,000)</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Document Viewer Modal */}
-      {showDocumentModal && selectedDocument && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 max-w-4xl w-full max-h-[90vh] overflow-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-semibold text-white">
-                  {KYCService.getDocumentTypeDisplayName(selectedDocument.type)}
-                </h3>
-                <p className="text-sm text-slate-400">{selectedDocument.fileName}</p>
+          {!otpSent ? (
+            <Button
+              onClick={handleSendOTP}
+              disabled={loading}
+              className="w-full"
+            >
+              {loading ? <LoadingSpinner size="sm" /> : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Send OTP to Email
+                </>
+              )}
+            </Button>
+          ) : (
+            <>
+              {/* OTP Instructions */}
+              <div className="mb-4 bg-yellow-500/20 border border-yellow-500/50 rounded-lg p-4">
+                <div className="flex items-start space-x-2">
+                  <Mail className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-sm text-slate-200">
+                    <p className="font-semibold mb-2">📧 Check Your Email</p>
+                    <p className="mb-2">OTP sent to: <span className="text-white font-semibold">{user.email}</span></p>
+                    <p className="text-xs text-slate-300">
+                      If you don't see the email, check your spam folder or the backend console for testing.
+                    </p>
+                  </div>
+                </div>
               </div>
-              <Button variant="ghost" onClick={() => setShowDocumentModal(false)}>
-                <XCircle className="w-5 h-5" />
-              </Button>
-            </div>
-            
-            <div className="text-center">
-              {selectedDocument.fileUrl.startsWith('data:image/') ? (
-                <img 
-                  src={selectedDocument.fileUrl} 
-                  alt={selectedDocument.type}
-                  className="max-w-full max-h-[70vh] rounded-lg border border-slate-600"
-                  onError={(e) => {
-                    console.error('Failed to load document image');
-                    e.currentTarget.style.display = 'none';
-                  }}
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Enter 6-Digit OTP
+                </label>
+                <Input
+                  type="text"
+                  placeholder="000000"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  maxLength={6}
+                  className="text-center text-2xl tracking-widest"
+                  autoFocus
                 />
-              ) : (
-                <div className="bg-slate-700 rounded-lg p-8">
-                  <FileText className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                  <p className="text-slate-300">PDF Document</p>
-                  <p className="text-sm text-slate-400">{selectedDocument.fileName}</p>
-                </div>
-              )}
-            </div>
-            
-            <div className="mt-6 bg-slate-700 rounded-lg p-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-slate-400">Status:</p>
-                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(selectedDocument.status)}`}>
-                    {selectedDocument.status.toUpperCase()}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-slate-400">Uploaded:</p>
-                  <p className="text-white">{formatDate(selectedDocument.uploadedAt)}</p>
-                </div>
-                <div>
-                  <p className="text-slate-400">File Size:</p>
-                  <p className="text-white">{(selectedDocument.fileSize / 1024 / 1024).toFixed(2)} MB</p>
-                </div>
-                <div>
-                  <p className="text-slate-400">Expires:</p>
-                  <p className="text-white">{selectedDocument.expiresAt ? formatDate(selectedDocument.expiresAt) : 'Never'}</p>
-                </div>
+                <p className="text-xs text-slate-400 mt-2">OTP expires in 10 minutes</p>
               </div>
-              {selectedDocument.rejectionReason && (
-                <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                  <p className="text-sm text-red-400 font-medium">Rejection Reason:</p>
-                  <p className="text-sm text-slate-300">{selectedDocument.rejectionReason}</p>
-                </div>
-              )}
+
+              <div className="flex space-x-3">
+                <Button
+                  onClick={handleVerifyOTP}
+                  disabled={loading || otp.length !== 6}
+                  className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600"
+                >
+                  {loading ? <LoadingSpinner size="sm" /> : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Verify & Get ₹100
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={handleSendOTP}
+                  variant="outline"
+                  disabled={loading}
+                >
+                  Resend
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Benefits */}
+      {kycStatus === 'not_submitted' && (
+        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
+          <h4 className="text-lg font-semibold text-white mb-4">Verification Benefits</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="flex items-start space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
+              <p className="text-slate-300 text-sm">Instant ₹100 bonus credited</p>
+            </div>
+            <div className="flex items-start space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
+              <p className="text-slate-300 text-sm">Secure withdrawals enabled</p>
+            </div>
+            <div className="flex items-start space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
+              <p className="text-slate-300 text-sm">Higher betting limits</p>
+            </div>
+            <div className="flex items-start space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-400 mt-0.5" />
+              <p className="text-slate-300 text-sm">Priority support access</p>
             </div>
           </div>
         </div>
       )}
-
-      {/* Help Section */}
-      <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-        <h4 className="text-lg font-semibold text-white mb-4">Document Requirements</h4>
-        <div className="space-y-3 text-sm text-slate-300">
-          <div className="flex items-start space-x-2">
-            <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
-            <p>Documents must be clear and readable</p>
-          </div>
-          <div className="flex items-start space-x-2">
-            <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
-            <p>All four corners of the document must be visible</p>
-          </div>
-          <div className="flex items-start space-x-2">
-            <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
-            <p>Documents must be current and not expired</p>
-          </div>
-          <div className="flex items-start space-x-2">
-            <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
-            <p>Utility bills and bank statements must be from the last 3 months</p>
-          </div>
-          <div className="flex items-start space-x-2">
-            <CheckCircle className="w-4 h-4 text-green-400 mt-0.5" />
-            <p>Supported formats: JPG, PNG, PDF (max 5MB)</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

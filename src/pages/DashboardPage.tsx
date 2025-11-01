@@ -12,6 +12,7 @@ import { formatCurrency, formatDate } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { WelcomeBonusNotification } from '../components/WelcomeBonusNotification';
 import { BalanceDebugger } from '../components/BalanceDebugger';
+import { KYCVerificationBanner } from '../components/notifications/KYCVerificationBanner';
 
 function DashboardContent() {
   const { user, isAuthenticated } = useAuth();
@@ -192,6 +193,9 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
+      {/* KYC Verification Banner */}
+      <KYCVerificationBanner />
+      
       <div className="container mx-auto px-4 py-8">
         {/* Enhanced Welcome Header */}
         <div className="mb-8">

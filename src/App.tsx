@@ -22,6 +22,7 @@ import { WalletPage } from './pages/WalletPage';
 import { PromotionsPage } from './pages/PromotionsPage';
 import { SupportPage } from './pages/SupportPage';
 import { AccountPage } from './pages/AccountPage';
+import { KYCVerificationPage } from './pages/KYCVerificationPage';
 import { AdminLoginPage } from './pages/admin/AdminLoginPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { UserManagement } from './pages/admin/UserManagement';
@@ -31,6 +32,7 @@ import { RiskManagement } from './pages/admin/RiskManagement';
 import { KYCManagement } from './pages/admin/KYCManagement';
 import { PromotionManagement } from './pages/admin/PromotionManagement';
 import { SupportManagement } from './pages/admin/SupportManagement';
+import { LiveChatManagement } from './pages/admin/LiveChatManagement';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { WithdrawalsManagement } from './pages/admin/WithdrawalsManagement';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -111,6 +113,14 @@ function AppContent() {
           <div className="min-h-screen bg-slate-900">
             <Header />
             <AccountPage />
+          </div>
+        </ProtectedRoute>
+      } />
+      <Route path="/kyc-verification" element={
+        <ProtectedRoute>
+          <div className="min-h-screen bg-slate-900">
+            <Header />
+            <KYCVerificationPage />
           </div>
         </ProtectedRoute>
       } />
@@ -205,6 +215,13 @@ function AppContent() {
         <AdminProtectedRoute>
           <AdminLayout>
             <SupportManagement />
+          </AdminLayout>
+        </AdminProtectedRoute>
+      } />
+      <Route path="/admin/live-chat" element={
+        <AdminProtectedRoute>
+          <AdminLayout>
+            <LiveChatManagement />
           </AdminLayout>
         </AdminProtectedRoute>
       } />

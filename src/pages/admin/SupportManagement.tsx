@@ -18,8 +18,16 @@ export function SupportManagement() {
   const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
-    const allTickets = SupportService.getAllTickets();
-    setTickets(allTickets);
+    const loadTickets = async () => {
+      try {
+        const allTickets = await SupportService.getAllTickets();
+        setTickets(allTickets);
+      } catch (error) {
+        console.error('Failed to load support tickets:', error);
+      }
+    };
+    
+    loadTickets();
 
     // Listen for new tickets
     const handleNewTicket = (e: StorageEvent) => {
@@ -52,12 +60,13 @@ export function SupportManagement() {
       setSelectedTicket(prev => prev ? {
         ...prev,
         messages: [...prev.messages, message],
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        status: 'in_progress'
       } : null);
 
       setTickets(prev => prev.map(ticket => 
         ticket.id === selectedTicket.id 
-          ? { ...ticket, messages: [...ticket.messages, message], updatedAt: new Date() }
+          ? { ...ticket, messages: [...ticket.messages, message], updatedAt: new Date(), status: 'in_progress' }
           : ticket
       ));
 
@@ -65,6 +74,50 @@ export function SupportManagement() {
       toast.success('Message sent');
     } catch (error) {
       toast.error('Failed to send message');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResolveTicket = async () => {
+    if (!selectedTicket) return;
+
+    setIsLoading(true);
+    try {
+      await SupportService.updateTicketStatus(selectedTicket.id, 'resolved');
+      
+      setSelectedTicket(prev => prev ? { ...prev, status: 'resolved', resolvedAt: new Date() } : null);
+      setTickets(prev => prev.map(ticket => 
+        ticket.id === selectedTicket.id 
+          ? { ...ticket, status: 'resolved', resolvedAt: new Date() }
+          : ticket
+      ));
+
+      toast.success('Ticket marked as resolved');
+    } catch (error) {
+      toast.error('Failed to resolve ticket');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCloseTicket = async () => {
+    if (!selectedTicket) return;
+
+    setIsLoading(true);
+    try {
+      await SupportService.updateTicketStatus(selectedTicket.id, 'closed');
+      
+      setSelectedTicket(prev => prev ? { ...prev, status: 'closed', closedAt: new Date() } : null);
+      setTickets(prev => prev.map(ticket => 
+        ticket.id === selectedTicket.id 
+          ? { ...ticket, status: 'closed', closedAt: new Date() }
+          : ticket
+      ));
+
+      toast.success('Ticket closed');
+    } catch (error) {
+      toast.error('Failed to close ticket');
     } finally {
       setIsLoading(false);
     }
@@ -229,8 +282,40 @@ export function SupportManagement() {
             <div className="flex flex-col h-96">
               {/* Ticket Header */}
               <div className="p-4 border-b border-slate-700">
-                <h4 className="font-medium text-white mb-1">{selectedTicket.subject}</h4>
-                <p className="text-xs text-slate-400">#{selectedTicket.id.slice(-8)}</p>
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <h4 className="font-medium text-white mb-1">{selectedTicket.subject}</h4>
+                    <p className="text-xs text-slate-400">#{selectedTicket.id.slice(-8)}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(selectedTicket.status)}`}>
+                    {selectedTicket.status.replace('_', ' ').toUpperCase()}
+                  </span>
+                </div>
+                
+                {/* Action Buttons */}
+                {selectedTicket.status !== 'closed' && selectedTicket.status !== 'resolved' && (
+                  <div className="flex space-x-2 mt-3">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={handleResolveTicket}
+                      disabled={isLoading}
+                      className="text-green-400 border-green-400 hover:bg-green-400/10"
+                    >
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Resolve
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={handleCloseTicket}
+                      disabled={isLoading}
+                      className="text-slate-400 border-slate-400 hover:bg-slate-400/10"
+                    >
+                      Close
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Messages */}

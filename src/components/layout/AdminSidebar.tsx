@@ -79,11 +79,19 @@ export function AdminSidebar() {
       description: 'Manage bonuses & offers'
     },
     { 
-      name: 'Support', 
+      name: 'Support Tickets', 
       href: '/admin/support', 
       icon: MessageCircle,
-      badge: '3',
+      badge: null,
       description: 'Customer support tickets'
+    },
+    { 
+      name: 'Live Chat', 
+      href: '/admin/live-chat', 
+      icon: MessageCircle,
+      badge: null, // Will be updated dynamically
+      description: 'Real-time chat support',
+      urgent: false // Will be updated dynamically
     }
   ];
 

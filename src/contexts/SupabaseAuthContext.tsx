@@ -392,8 +392,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('elitebet_user_session', JSON.stringify({ user: convertedUser, token: r.token, expiresAt: new Date(Date.now()+7*864e5).toISOString() }));
         // Sync user email/name into Mongo so Admin shows real email
         try {
-          const base = ((import.meta as any).env?.VITE_BACKEND_URL || 'http://localhost:3001/api/betting');
-          await fetch(`${base}/sync-user`, {
+          const base = ((import.meta as any).env?.VITE_BACKEND_URL || 'http://localhost:3001');
+          await fetch(`${base}/api/auth/sync-user`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: convertedUser.id, email: convertedUser.email, firstName: convertedUser.firstName, lastName: convertedUser.lastName })
           });

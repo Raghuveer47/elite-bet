@@ -170,8 +170,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       
       // Try to fetch from MongoDB backend FIRST
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
-        const backendResponse = await fetch(`${backendUrl}/transactions/${user.id}`);
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const backendResponse = await fetch(`${backendUrl}/api/betting/transactions/${user.id}`);
         
         if (backendResponse.ok) {
           const backendData = await backendResponse.json();
@@ -206,7 +206,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
         // Also fetch live balance from backend and sync main INR account
         try {
-          const balResp = await fetch(`${backendUrl}/balance/${user.id}`, { headers: { 'Cache-Control': 'no-cache' }});
+          const balResp = await fetch(`${backendUrl}/api/betting/balance/${user.id}`, { headers: { 'Cache-Control': 'no-cache' }});
           if (balResp.ok) {
             const balData = await balResp.json();
             if (balData && typeof balData.balance === 'number') {
@@ -296,9 +296,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setTransactions(uniqueTransactions);
 
       // Also refresh balance immediately to sync with backend
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       try {
-        const balResp = await fetch(`${backendUrl}/balance/${user.id}`, { headers: { 'Cache-Control': 'no-cache' } });
+        const balResp = await fetch(`${backendUrl}/api/betting/balance/${user.id}`, { headers: { 'Cache-Control': 'no-cache' } });
         if (balResp.ok) {
           const balData = await balResp.json();
           if (balData.success && typeof balData.balance === 'number') {
@@ -340,11 +340,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       let userBalance = 0; // Start with 0 to force backend fetch
       
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
         // Suppressed logs to reduce console spam
-        // logger.log('WalletContext: Fetching from:', `${backendUrl}/balance/${user.id}`);
+        // logger.log('WalletContext: Fetching from:', `${backendUrl}/api/betting/balance/${user.id}`);
         
-        const balanceResponse = await fetch(`${backendUrl}/balance/${user.id}`, { headers: { 'Cache-Control': 'no-cache' } });
+        const balanceResponse = await fetch(`${backendUrl}/api/betting/balance/${user.id}`, { headers: { 'Cache-Control': 'no-cache' } });
         
         if (balanceResponse.ok) {
           const balanceData = await balanceResponse.json();
@@ -422,12 +422,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       if (!isActive) return;
       
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
         
         // Fetch BOTH balance AND transactions
         const [balanceResponse, transactionsResponse] = await Promise.all([
-          fetch(`${backendUrl}/balance/${user.id}`),
-          fetch(`${backendUrl}/transactions/${user.id}`)
+          fetch(`${backendUrl}/api/betting/balance/${user.id}`),
+          fetch(`${backendUrl}/api/betting/transactions/${user.id}`)
         ]);
         
         if (!isActive) return;
@@ -649,8 +649,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Create pending withdrawal via backend (admin approval required)
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
-      const response = await fetch(`${backendUrl}/transaction`, {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/betting/transaction`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -753,8 +753,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       try {
         console.log('WalletContext: Attempting MongoDB backend...');
         
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
-        const response = await fetch(`${backendUrl}/transaction`, {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const response = await fetch(`${backendUrl}/api/betting/transaction`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -915,6 +915,73 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
+      // Try backend first
+      if (useBackend) {
+        try {
+          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+          const response = await fetch(`${backendUrl}/api/betting/transaction`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: user.id,
+              type: 'withdrawal',
+              amount: request.amount,
+              description: transactionData.description,
+              metadata: {
+                ...transactionData.metadata,
+                requiresAdminApproval: true
+              }
+            })
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log('WalletContext: Backend withdrawal created:', result);
+
+            const pendingPayment: PendingPayment = {
+              id: result.transaction.id,
+              userId: user.id,
+              type: 'withdrawal',
+              amount: request.amount,
+              currency: request.currency || 'INR',
+              method: request.method || 'bank_transfer',
+              transactionId: result.transaction.reference || '',
+              paymentProofUrl: '',
+              bankDetails: request.metadata?.bankDetails,
+              status: 'pending',
+              submittedAt: new Date(result.transaction.createdAt),
+              reviewedAt: undefined,
+              reference: result.transaction.reference,
+              description: result.transaction.description,
+              metadata: result.transaction.metadata
+            };
+
+            setPendingPayments(prev => [pendingPayment, ...prev]);
+            setTransactions(prev => [{
+              id: result.transaction.id,
+              userId: user.id,
+              type: 'withdrawal',
+              amount: request.amount,
+              currency: request.currency || 'INR',
+              status: 'pending',
+              fee: 0,
+              method: request.method || 'bank_transfer',
+              description: result.transaction.description,
+              reference: result.transaction.reference,
+              createdAt: new Date(result.transaction.createdAt),
+              updatedAt: new Date(result.transaction.updatedAt),
+              metadata: result.transaction.metadata
+            }, ...prev]);
+
+            toast.success('Withdrawal submitted for admin approval');
+            return pendingPayment;
+          }
+        } catch (backendError) {
+          console.error('WalletContext: Backend withdrawal failed:', backendError);
+        }
+      }
+
+      // Fallback to Supabase
       if (!useBackend) {
         const result = await SupabaseAuthService.createTransaction(transactionData);
         if (!result.success || !result.transaction) {
@@ -943,27 +1010,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         return pendingPayment;
       }
 
-      // Backend-only path fallback to local placeholder
-      const localPending: PendingPayment = {
-        id: `LOCAL_WTH_${Date.now()}`,
-        userId: user.id,
-        type: 'withdrawal',
-        amount: request.amount,
-        currency: request.currency || 'INR',
-        method: request.method || 'manual_withdrawal',
-        transactionId: '',
-        paymentProofUrl: '',
-        bankDetails: undefined,
-        status: 'pending',
-        submittedAt: new Date(),
-        reviewedAt: undefined,
-        reference: `TXN_${Date.now()}`,
-        description: transactionData.description,
-        metadata: transactionData.metadata
-      };
-      setPendingPayments(prev => [localPending, ...prev]);
-      toast.success('Manual withdrawal submitted for review');
-      return localPending;
+      throw new Error('No backend available for withdrawal');
     } catch (error: any) {
       console.error('WalletContext: Manual withdrawal error:', error);
       toast.error(error.message || 'Manual withdrawal failed');
@@ -1049,7 +1096,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         console.log('💾 Syncing bet to database...');
         
         // Try MongoDB backend first
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout for slower connections
         
@@ -1069,7 +1116,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           metadata
         } as any;
         console.log('[FRONT] POST /casino/bet payload', betPayload);
-        const response = await fetch(`${backendUrl}/casino/bet`, {
+        const response = await fetch(`${backendUrl}/api/betting/casino/bet`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: controller.signal,
@@ -1188,8 +1235,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
       // First try MongoDB backend
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
-        const backendResp = await fetch(`${backendUrl}/casino/win`, {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const backendResp = await fetch(`${backendUrl}/api/betting/casino/win`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1234,16 +1281,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
               return updated;
             });
 
-            // Update INR account balance/stats from backend response
-            if (typeof data.balance === 'number') {
-              setAccounts(prev => prev.map(acc =>
-                acc.currency === 'INR' && acc.accountType === 'main'
-                  ? { ...acc, balance: data.balance, updatedAt: new Date() }
-                  : acc
-              ));
-              // sync auth balance too (dashboard header)
-              try { await updateBalance(data.balance); } catch {}
-            }
+            // DON'T overwrite local balance with backend balance
+            // The backend might have stale balance if bet hasn't synced yet
+            // Local balance is already correct (calculated above on lines 1178-1187)
+            console.log('[DEBUG] Backend balance:', data.balance, 'Local balance:', newBalance, '(keeping local)');
 
             // Notify listeners (Wallet page) to refresh
             try { window.dispatchEvent(new CustomEvent('wallet_updated')); } catch {}
@@ -1317,7 +1358,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     // If we don't have a betId (e.g., bet call timed out), skip backend loss call
     if (!betId) return;
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       const backendResp = await fetch(`${backendUrl}/casino/loss`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
