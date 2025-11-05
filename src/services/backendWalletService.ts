@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export interface TransactionData {
   userId: string;
@@ -28,7 +28,7 @@ export class BackendWalletService {
   // Get user balance from backend
   static async getUserBalance(userId: string) {
     try {
-      const response = await fetch(`${API_BASE_URL}/balance/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/api/betting/balance/${userId}`);
       const data = await response.json();
       
       if (data.success) {
@@ -49,7 +49,7 @@ export class BackendWalletService {
   // Update user balance
   static async updateBalance(userId: string, amount: number, reason: string) {
     try {
-      const response = await fetch(`${API_BASE_URL}/balance/update`, {
+      const response = await fetch(`${API_BASE_URL}/api/betting/balance/update`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -77,7 +77,7 @@ export class BackendWalletService {
   // Create transaction
   static async createTransaction(transactionData: TransactionData) {
     try {
-      const response = await fetch(`${API_BASE_URL}/transaction`, {
+      const response = await fetch(`${API_BASE_URL}/api/betting/transaction`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -105,7 +105,7 @@ export class BackendWalletService {
   // Place a bet
   static async placeBet(betData: BetData) {
     try {
-      const response = await fetch(`${API_BASE_URL}/bet`, {
+      const response = await fetch(`${API_BASE_URL}/api/betting/bet`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -133,7 +133,7 @@ export class BackendWalletService {
   // Process bet result
   static async processBetResult(betResultData: BetResultData) {
     try {
-      const response = await fetch(`${API_BASE_URL}/bet/result`, {
+      const response = await fetch(`${API_BASE_URL}/api/betting/bet/result`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -162,7 +162,7 @@ export class BackendWalletService {
   static async getTransactions(userId: string, page = 1, limit = 50) {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/transactions/${userId}?page=${page}&limit=${limit}`
+        `${API_BASE_URL}/api/betting/transactions/${userId}?page=${page}&limit=${limit}`
       );
       
       const data = await response.json();
@@ -186,7 +186,7 @@ export class BackendWalletService {
   static async getBets(userId: string, page = 1, limit = 50) {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/bets/${userId}?page=${page}&limit=${limit}`
+        `${API_BASE_URL}/api/betting/bets/${userId}?page=${page}&limit=${limit}`
       );
       
       const data = await response.json();
@@ -209,7 +209,7 @@ export class BackendWalletService {
   // Get game statistics
   static async getGameStats(userId: string, gameType: string) {
     try {
-      const response = await fetch(`${API_BASE_URL}/stats/${userId}/${gameType}`);
+      const response = await fetch(`${API_BASE_URL}/api/betting/stats/${userId}/${gameType}`);
       
       const data = await response.json();
       

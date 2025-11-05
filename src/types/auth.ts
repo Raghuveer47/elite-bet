@@ -10,6 +10,7 @@ export interface User {
   lastLogin: Date;
   country?: string;
   referralCode?: string | null;
+  status?: 'active' | 'suspended' | 'closed';
 }
 
 export interface AuthSession {

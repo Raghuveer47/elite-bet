@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { AlertCircle, CheckCircle, Clock, ArrowDownLeft, Building2, CreditCard, Smartphone, DollarSign, Eye, Upload } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, ArrowDownLeft, Building2, CreditCard, Smartphone, DollarSign, Upload, QrCode } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
@@ -17,13 +17,14 @@ export function DepositForm() {
   const [email, setEmail] = useState('');
   const [upiId, setUpiId] = useState('');
   const [transactionId, setTransactionId] = useState('');
-  const [selectedMethod, setSelectedMethod] = useState<string>('union_bank_india');
-  const [showBankDetails, setShowBankDetails] = useState(true); // Show by default
+  const [selectedMethod, setSelectedMethod] = useState<string>(''); // No default selection
   const [success, setSuccess] = useState<string | null>(null);
   const [showPendingDeposits, setShowPendingDeposits] = useState(false);
   const [paymentScreenshot, setPaymentScreenshot] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [loadingMethods, setLoadingMethods] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-fill user data
@@ -34,6 +35,66 @@ export function DepositForm() {
     }
   }, [user]);
 
+  // Fetch payment methods from backend
+  useEffect(() => {
+    fetchPaymentMethods();
+  }, []);
+
+  const fetchPaymentMethods = async () => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/betting/payment-config`);
+      const data = await response.json();
+      
+      if (data.success && data.paymentMethods && data.paymentMethods.length > 0) {
+        setPaymentMethods(data.paymentMethods);
+        // DON'T auto-select - let user choose
+        console.log('✅ Loaded', data.paymentMethods.length, 'payment methods');
+      } else {
+        // Fallback to hardcoded if API fails
+        console.warn('Using fallback payment methods');
+        setPaymentMethods(fallbackPaymentMethods);
+      }
+    } catch (error) {
+      console.error('Failed to load payment methods:', error);
+      toast.error('Failed to load payment methods, using defaults');
+      setPaymentMethods(fallbackPaymentMethods);
+    } finally {
+      setLoadingMethods(false);
+    }
+  };
+
+  // Fallback payment methods (if API fails)
+  const fallbackPaymentMethods = [
+    {
+      method: 'phonepe',
+      displayName: 'PhonePe / UPI',
+      isActive: true,
+      upiId: 'merchant@paytm',
+      qrCodeUrl: '',
+      minAmount: 100,
+      maxAmount: 50000,
+      processingTime: '5-10 minutes',
+      instructions: '1. Scan QR or use UPI ID\n2. Make payment\n3. Upload screenshot'
+    },
+    {
+      method: 'bank_transfer',
+      displayName: 'Bank Transfer',
+      isActive: true,
+      bankDetails: {
+        accountHolderName: 'Elite Bet Holdings Ltd',
+        accountNumber: '034312010001727',
+        ifscCode: 'UBIN0803430',
+        bankName: 'Union Bank of India',
+        branchName: 'Main Branch'
+      },
+      minAmount: 500,
+      maxAmount: 100000,
+      processingTime: '10-30 minutes',
+      instructions: '1. Transfer to bank account\n2. Note transaction ID\n3. Upload payment proof'
+    }
+  ];
+
   console.log('DepositForm: isLoading =', isLoading, 'error =', error);
 
   // Get pending deposits
@@ -41,37 +102,7 @@ export function DepositForm() {
     tx.type === 'deposit' && tx.status === 'pending'
   ) || [];
 
-  // Payment methods
-  const paymentMethods = [
-    {
-      id: 'union_bank_india',
-      name: 'Union Bank of India',
-      description: 'Bank Transfer to Union Bank Account',
-      bankDetails: {
-        bankName: 'Union Bank of India',
-        accountName: 'Elite Bet Holdings Ltd',
-        accountNumber: '034312010001727',
-        ifscCode: 'UBIN0803430',
-        phoneNumber: '8712243286',
-        branchName: 'Union Bank Branch'
-      }
-    },
-    {
-      id: 'phonepe',
-      name: 'PhonePe Payment',
-      description: 'Pay via PhonePe UPI',
-      bankDetails: {
-        bankName: 'PhonePe UPI',
-        accountName: 'Elite Bet Holdings Ltd',
-        accountNumber: '8712243286',
-        ifscCode: 'N/A',
-        phoneNumber: '8712243286',
-        branchName: 'PhonePe UPI'
-      }
-    }
-  ];
-
-  const selectedPaymentMethod = paymentMethods.find(method => method.id === selectedMethod);
+  const selectedPaymentMethod = paymentMethods.find(method => method.method === selectedMethod);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -178,7 +209,6 @@ export function DepositForm() {
       setEmail('');
       setUpiId('');
       setTransactionId('');
-      setShowBankDetails(false);
       setPaymentScreenshot(null);
       setScreenshotPreview(null);
       
@@ -243,45 +273,234 @@ export function DepositForm() {
 
       {/* Deposit Form */}
       <div className="p-6">
-        {/* Bank Details Display - MOVED ABOVE FORM */}
-        {selectedPaymentMethod && showBankDetails && (
-          <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-            <h4 className="text-blue-400 font-medium mb-3 flex items-center gap-2">
-              <Eye className="w-4 h-4" />
-              Payment Details (Make payment to these details)
+        {/* Payment Method Selection - MUST BE FIRST */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-slate-300 mb-3">
+            Step 1: Select Payment Method *
+          </label>
+          {loadingMethods ? (
+            <div className="flex items-center justify-center py-8">
+              <LoadingSpinner size="md" />
+            </div>
+          ) : paymentMethods.length === 0 ? (
+            <div className="p-6 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-center">
+              <p className="text-yellow-400">No payment methods available. Please contact admin.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {paymentMethods.map((method) => (
+                <div
+                  key={method.method}
+                  className={`p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
+                    selectedMethod === method.method
+                      ? 'border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20'
+                      : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
+                  }`}
+                  onClick={() => {
+                    console.log('User selected payment method:', method.method);
+                    setSelectedMethod(method.method);
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-2 rounded-lg ${
+                        method.method === 'bank_transfer' ? 'bg-blue-500/10 text-blue-400' :
+                        method.method === 'phonepe' ? 'bg-purple-500/10 text-purple-400' :
+                        'bg-slate-500/10 text-slate-400'
+                      }`}>
+                        {method.method === 'bank_transfer' ? <Building2 className="w-5 h-5" /> :
+                         <Smartphone className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <h4 className="text-white font-medium">{method.displayName}</h4>
+                        <p className="text-slate-400 text-sm">
+                          Min: ₹{method.minAmount} | Max: ₹{method.maxAmount}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-slate-400 text-sm">Processing Time</p>
+                      <p className="text-slate-300 text-sm font-medium">{method.processingTime}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* PhonePe / UPI Payment Details - ONLY SHOW AFTER SELECTION */}
+        {selectedMethod && selectedPaymentMethod && selectedPaymentMethod.method === 'phonepe' && (
+          <div className="mb-6 p-6 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-lg">
+            <h4 className="text-purple-400 font-semibold mb-1 flex items-center gap-2">
+              <Smartphone className="w-5 h-5" />
+              Step 2: PhonePe / UPI Payment Details
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Bank:</span>
-                <span className="text-white font-medium">{selectedPaymentMethod.bankDetails.bankName}</span>
+            <p className="text-sm text-slate-400 mb-4">Use any of these methods to make your payment</p>
+            
+            {/* QR Code */}
+            {selectedPaymentMethod.qrCodeUrl && 
+             selectedPaymentMethod.qrCodeUrl.includes('cloudinary.com') ? (
+              <div className="mb-6 text-center">
+                <p className="text-sm text-slate-400 mb-3">💳 Scan QR Code with any UPI app:</p>
+                <div className="inline-block bg-white p-4 rounded-lg shadow-lg">
+                  <img
+                    src={selectedPaymentMethod.qrCodeUrl}
+                    alt="PhonePe QR Code"
+                    className="w-64 h-64 object-contain"
+                    onError={() => {
+                      console.error('QR code failed to load:', selectedPaymentMethod.qrCodeUrl);
+                    }}
+                  />
+                </div>
               </div>
+            ) : (
+              <div className="mb-6 p-6 bg-yellow-500/10 border-2 border-yellow-500/30 rounded-lg text-center">
+                <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <QrCode className="w-8 h-8 text-yellow-400" />
+                </div>
+                <p className="text-yellow-400 font-semibold mb-2">QR Code Not Available</p>
+                <p className="text-sm text-slate-400">
+                  Admin hasn't uploaded a QR code yet. Please use the UPI ID below to make your payment.
+                </p>
+              </div>
+            )}
+            
+            {/* UPI ID */}
+            {selectedPaymentMethod.upiId ? (
+              <div className="mb-4">
+                <p className="text-sm text-slate-400 mb-2">📱 Or use UPI ID:</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 bg-slate-800 px-4 py-3 rounded text-white font-mono text-lg border border-slate-600">
+                    {selectedPaymentMethod.upiId}
+                  </code>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(selectedPaymentMethod.upiId);
+                      toast.success('UPI ID copied to clipboard!');
+                    }}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <p className="text-sm text-red-400 text-center">
+                  ⚠️ UPI ID not configured. Please contact admin.
+                </p>
+              </div>
+            )}
+            
+            {/* Instructions */}
+            {selectedPaymentMethod.instructions && (
+              <div className="mt-4 p-4 bg-slate-800/50 rounded border border-slate-700">
+                <p className="text-sm text-slate-400 mb-2 font-medium">Instructions:</p>
+                <p className="text-sm text-slate-300 whitespace-pre-line">{selectedPaymentMethod.instructions}</p>
+              </div>
+            )}
+            
+            {/* Min/Max Info */}
+            <div className="mt-4 flex items-center gap-4 text-xs text-slate-400">
+              <span>Min: ₹{selectedPaymentMethod.minAmount}</span>
+              <span>•</span>
+              <span>Max: ₹{selectedPaymentMethod.maxAmount}</span>
+              <span>•</span>
+              <span>Processing: {selectedPaymentMethod.processingTime}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Bank Transfer Payment Details - ONLY SHOW AFTER SELECTION */}
+        {selectedMethod && selectedPaymentMethod && selectedPaymentMethod.method === 'bank_transfer' && selectedPaymentMethod.bankDetails && (
+          <div className="mb-6 p-6 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-lg">
+            <h4 className="text-blue-400 font-semibold mb-1 flex items-center gap-2">
+              <Building2 className="w-5 h-5" />
+              Step 2: Bank Transfer Details
+            </h4>
+            <p className="text-sm text-slate-400 mb-4">Transfer money to this bank account</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-400">Account Name:</span>
-                <span className="text-white font-medium">{selectedPaymentMethod.bankDetails.accountName}</span>
+                <span className="text-slate-400">Account Holder:</span>
+                <span className="text-white font-medium">{selectedPaymentMethod.bankDetails.accountHolderName}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Account Number:</span>
                 <span className="text-white font-medium font-mono">{selectedPaymentMethod.bankDetails.accountNumber}</span>
               </div>
-              {selectedPaymentMethod.bankDetails.ifscCode !== 'N/A' && (
-                <div className="flex justify-between">
-                  <span className="text-slate-400">IFSC Code:</span>
-                  <span className="text-white font-medium font-mono">{selectedPaymentMethod.bankDetails.ifscCode}</span>
+              <div className="flex justify-between">
+                <span className="text-slate-400">IFSC Code:</span>
+                <span className="text-white font-medium font-mono">{selectedPaymentMethod.bankDetails.ifscCode}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Bank Name:</span>
+                <span className="text-white font-medium">{selectedPaymentMethod.bankDetails.bankName}</span>
+              </div>
+              {selectedPaymentMethod.bankDetails.branchName && (
+                <div className="flex justify-between col-span-2">
+                  <span className="text-slate-400">Branch:</span>
+                  <span className="text-white font-medium">{selectedPaymentMethod.bankDetails.branchName}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-slate-400">Phone:</span>
-                <span className="text-white font-medium">{selectedPaymentMethod.bankDetails.phoneNumber}</span>
+            </div>
+            
+            {/* Copy Button */}
+            <Button
+              onClick={() => {
+                const details = `Account: ${selectedPaymentMethod.bankDetails.accountNumber}\nIFSC: ${selectedPaymentMethod.bankDetails.ifscCode}\nBank: ${selectedPaymentMethod.bankDetails.bankName}`;
+                navigator.clipboard.writeText(details);
+                toast.success('Bank details copied to clipboard!');
+              }}
+              variant="outline"
+              size="sm"
+              fullWidth
+              className="mt-4"
+            >
+              Copy Bank Details
+            </Button>
+            
+            {/* Instructions */}
+            {selectedPaymentMethod.instructions && (
+              <div className="mt-4 p-4 bg-slate-800/50 rounded border border-slate-700">
+                <p className="text-sm text-slate-400 mb-2 font-medium">Instructions:</p>
+                <p className="text-sm text-slate-300 whitespace-pre-line">{selectedPaymentMethod.instructions}</p>
               </div>
+            )}
+            
+            {/* Min/Max Info */}
+            <div className="mt-4 flex items-center gap-4 text-xs text-slate-400">
+              <span>Min: ₹{selectedPaymentMethod.minAmount}</span>
+              <span>•</span>
+              <span>Max: ₹{selectedPaymentMethod.maxAmount}</span>
+              <span>•</span>
+              <span>Processing: {selectedPaymentMethod.processingTime}</span>
             </div>
           </div>
         )}
 
+        {/* Message when no payment method selected */}
+        {!selectedMethod && !loadingMethods && paymentMethods.length > 0 && (
+          <div className="mb-6 p-8 bg-slate-800/50 border border-slate-600 rounded-lg text-center">
+            <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CreditCard className="w-8 h-8 text-blue-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">Select a Payment Method</h3>
+            <p className="text-slate-400">
+              Choose your preferred payment method above to continue with the deposit
+            </p>
+          </div>
+        )}
+
+        {/* Only show form after payment method is selected */}
+        {selectedMethod && (
         <form onSubmit={(e) => { e.preventDefault(); handleDepositSubmission(); }} className="space-y-6">
           {/* Deposit Amount */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Deposit Amount
+              Step 3: Enter Deposit Amount
             </label>
             <div className="relative">
               <Input
@@ -304,7 +523,7 @@ export function DepositForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Your Name *
+                Step 4: Your Name *
               </label>
               <Input
                 type="text"
@@ -329,7 +548,7 @@ export function DepositForm() {
           {/* Transaction ID */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Transaction ID *
+              Step 5: Transaction ID *
             </label>
             <Input
               type="text"
@@ -358,55 +577,10 @@ export function DepositForm() {
             </div>
           )}
 
-          {/* Payment Methods */}
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-3">
-              Payment Method
-            </label>
-            <div className="space-y-3">
-              {paymentMethods.map((method) => (
-                <div
-                  key={method.id}
-                  className={`p-4 rounded-lg border cursor-pointer transition-all duration-200 ${
-                    selectedMethod === method.id
-                      ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
-                  }`}
-                  onClick={() => {
-                    setSelectedMethod(method.id);
-                    setShowBankDetails(true);
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`p-2 rounded-lg ${
-                        method.id === 'union_bank_india' ? 'bg-blue-500/10 text-blue-400' :
-                        method.id === 'phonepe' ? 'bg-purple-500/10 text-purple-400' :
-                        'bg-slate-500/10 text-slate-400'
-                      }`}>
-                        {method.id === 'union_bank_india' ? <Building2 className="w-5 h-5" /> :
-                         method.id === 'phonepe' ? <Smartphone className="w-5 h-5" /> :
-                         <CreditCard className="w-5 h-5" />}
-                      </div>
-                      <div>
-                        <h4 className="text-white font-medium">{method.name}</h4>
-                        <p className="text-slate-400 text-sm">{method.description}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-slate-400 text-sm">Admin will process manually</p>
-                      <p className="text-slate-500 text-xs">Processing Time: 1-2 business days</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Screenshot Upload */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Payment Screenshot *
+              Step 6: Upload Payment Screenshot *
             </label>
             <div className="space-y-3">
               {!paymentScreenshot ? (
@@ -453,8 +627,8 @@ export function DepositForm() {
           {/* Submit Button */}
           <Button
             type="submit"
-            disabled={isLoading || uploading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors"
+            disabled={isLoading || uploading || !selectedMethod}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {(isLoading || uploading) ? (
               <div className="flex items-center justify-center gap-2">
@@ -466,6 +640,7 @@ export function DepositForm() {
             )}
           </Button>
         </form>
+        )}
 
         {/* Pending Deposits Section */}
         {pendingDeposits.length > 0 && (

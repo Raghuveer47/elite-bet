@@ -562,21 +562,39 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('AdminContext: Updating user status:', userId, status);
       
-      const result = await SupabaseAuthService.updateUser(userId, { status });
+      // Update in MongoDB backend (persists the change)
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendResponse = await fetch(`${backendUrl}/api/betting/admin/update-user-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, status })
+      });
+
+      const backendData = await backendResponse.json();
       
-      if (result.success) {
-        setUsers(prev => prev.map(user => 
-          user.id === userId ? { ...user, status } : user
-        ));
-        
-        toast.success(`User ${status} successfully`);
-        console.log('AdminContext: User status updated successfully');
-      } else {
-        throw new Error(result.message || 'Failed to update user status');
+      if (!backendData.success) {
+        throw new Error(backendData.message || 'Failed to update user status');
       }
+
+      console.log('✅ AdminContext: User status updated in MongoDB:', backendData);
+
+      // Also update in Supabase (if using dual storage)
+      try {
+        await SupabaseAuthService.updateUser(userId, { status });
+      } catch (supabaseError) {
+        console.warn('Supabase update failed (non-critical):', supabaseError);
+      }
+      
+      // Update local state
+      setUsers(prev => prev.map(user => 
+        user.id === userId ? { ...user, status } : user
+      ));
+      
+      toast.success(`User ${status} successfully - persisted to database`);
+      console.log('AdminContext: User status updated successfully');
     } catch (error: any) {
       console.error('AdminContext: Update user status error:', error);
-      toast.error('Failed to update user status');
+      toast.error('Failed to update user status: ' + error.message);
       throw error;
     }
   };

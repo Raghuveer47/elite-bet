@@ -4,12 +4,16 @@ import { cn } from '../../lib/utils';
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
+  fullWidth?: boolean;
+  icon?: React.ReactNode;
   children: React.ReactNode;
 }
 
 export function Button({ 
   variant = 'primary', 
   size = 'md', 
+  fullWidth = false,
+  icon,
   className, 
   children, 
   ...props 
@@ -32,9 +36,16 @@ export function Button({
   
   return (
     <button
-      className={cn(baseClasses, variants[variant], sizes[size], className)}
+      className={cn(
+        baseClasses, 
+        variants[variant], 
+        sizes[size], 
+        fullWidth && 'w-full',
+        className
+      )}
       {...props}
     >
+      {icon && <span className="mr-2">{icon}</span>}
       {children}
     </button>
   );

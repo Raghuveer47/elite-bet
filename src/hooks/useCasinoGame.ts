@@ -19,7 +19,7 @@ export function useCasinoGame(gameId: string, initialBalance?: number) {
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [lastBetId, setLastBetId] = useState<string | undefined>(undefined);
-  const apiBase = (import.meta as any).env?.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+  const apiBase = (import.meta as any).env?.VITE_BACKEND_URL || 'http://localhost:3001';
 
   const placeBet = useCallback(async (betAmount: number) => {
     if (!user) {

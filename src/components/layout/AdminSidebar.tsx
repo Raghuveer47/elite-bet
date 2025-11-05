@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   Shield, BarChart3, Users, DollarSign,
   MessageCircle, Settings, Wallet,
-  ChevronLeft, ChevronRight, LogOut
+  ChevronLeft, ChevronRight, LogOut, CreditCard
 } from 'lucide-react';
 import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { Button } from '../ui/Button';
@@ -46,6 +46,13 @@ export function AdminSidebar() {
         pendingPayments.filter(p => p.status === 'pending').length.toString() : null,
       description: 'Payments & reports',
       urgent: pendingPayments.filter(p => p.status === 'pending').length > 0
+    },
+    { 
+      name: 'Payment Settings', 
+      href: '/admin/payment-settings', 
+      icon: CreditCard,
+      badge: null,
+      description: 'Configure payment methods'
     },
     // Hidden - Game Management
     // { 

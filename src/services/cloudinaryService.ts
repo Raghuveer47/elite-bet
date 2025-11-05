@@ -13,7 +13,10 @@ export class CloudinaryService {
       }
       
       // Try unsigned upload first (requires preset)
-      const presetNames = ['ml_default', 'unsigned', 'default', 'elite-bet', 'public'];
+      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+      const presetNames = uploadPreset 
+        ? [uploadPreset, 'ml_default', 'unsigned', 'default', 'elite-bet', 'public']
+        : ['ml_default', 'unsigned', 'default', 'elite-bet', 'public', 'support_chat_uploads'];
       let uploadSuccess = false;
       let result = null;
       

@@ -41,7 +41,13 @@ export function UserManagement() {
 
   const handleStatusChange = async (userId: string, newStatus: 'active' | 'suspended' | 'closed') => {
     try {
-      await updateUserStatus(userId, newStatus);
+      // Find the user to get their email (userId in MongoDB is the email)
+      const user = users.find(u => u.id === userId);
+      const userIdForBackend = user?.email || userId; // Use email as userId
+      
+      console.log('Updating user status - ID:', userId, 'Email/UserId:', userIdForBackend);
+      
+      await updateUserStatus(userIdForBackend, newStatus);
     } catch (error) {
       console.error('Failed to update user status:', error);
     }

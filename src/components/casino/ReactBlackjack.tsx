@@ -83,9 +83,9 @@ export function ReactBlackjack({ gameId, gameName }: ReactBlackjackProps) {
   }
 
   async function serverStart() {
-    const urlBase = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+    const urlBase = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
     try {
-      const res = await fetch(`${urlBase}/blackjack/start`, {
+      const res = await fetch(`${urlBase}/api/betting/blackjack/start`, {
         method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: user?.id })
       });
       if (!res.ok) {
@@ -101,9 +101,9 @@ export function ReactBlackjack({ gameId, gameName }: ReactBlackjackProps) {
   }
 
   async function serverHit() {
-    const urlBase = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+    const urlBase = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
     try {
-      const res = await fetch(`${urlBase}/blackjack/hit`, {
+      const res = await fetch(`${urlBase}/api/betting/blackjack/hit`, {
         method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: user?.id })
       });
       if (!res.ok) {
@@ -119,9 +119,9 @@ export function ReactBlackjack({ gameId, gameName }: ReactBlackjackProps) {
   }
 
   async function serverStand() {
-    const urlBase = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
+    const urlBase = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
     try {
-      const res = await fetch(`${urlBase}/blackjack/stand`, {
+      const res = await fetch(`${urlBase}/api/betting/blackjack/stand`, {
         method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: user?.id })
       });
       if (!res.ok) {

@@ -301,8 +301,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Try to fetch real balance from MongoDB backend FIRST
       console.log('AuthContext: Fetching balance from MongoDB backend for:', mockUser.id);
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/betting';
-        const balanceResponse = await fetch(`${backendUrl}/balance/${mockUser.id}`);
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const balanceResponse = await fetch(`${backendUrl}/api/betting/balance/${mockUser.id}`);
         
         if (balanceResponse.ok) {
           const balanceData = await balanceResponse.json();

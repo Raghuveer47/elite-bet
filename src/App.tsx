@@ -4,6 +4,7 @@ import { AdminProvider } from './contexts/SupabaseAdminContext';
 import { WalletProvider } from './contexts/SupabaseWalletContext';
 import { SocketProvider } from './contexts/SocketContext';
 import { SessionMonitorWrapper } from './components/SessionMonitorWrapper';
+import { UserStatusMonitor } from './components/UserStatusMonitor';
 import { Toaster } from 'react-hot-toast';
 import { Header } from './components/layout/Header';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
@@ -13,6 +14,9 @@ import { ErrorBoundary } from './components/ui/ErrorBoundary';
 import LandingPage from './pages/LandingPage';
 import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
+import { ResetPasswordLinkPage } from './pages/auth/ResetPasswordLinkPage';
 import { DashboardPage } from './pages/DashboardPage';
 import SportsPage from './pages/SportsPage';
 import { CasinoPage } from './pages/CasinoPage';
@@ -33,6 +37,7 @@ import { SupportManagement } from './pages/admin/SupportManagement';
 import { LiveChatManagement } from './pages/admin/LiveChatManagement';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { WithdrawalsManagement } from './pages/admin/WithdrawalsManagement';
+import { PaymentSettings } from './pages/admin/PaymentSettings';
 import { NotFoundPage } from './pages/NotFoundPage';
 // import { ActivityFeed } from './components/notifications/ActivityFeed';
 // import { FloatingWinners } from './components/notifications/FloatingWinners';
@@ -67,6 +72,21 @@ function AppContent() {
             <Header />
             <RegisterPage />
           </div>
+        </ProtectedRoute>
+      } />
+      <Route path="/forgot-password" element={
+        <ProtectedRoute requireAuth={false}>
+          <ForgotPasswordPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/reset-password" element={
+        <ProtectedRoute requireAuth={false}>
+          <ResetPasswordPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/reset-password-link" element={
+        <ProtectedRoute requireAuth={false}>
+          <ResetPasswordLinkPage />
         </ProtectedRoute>
       } />
       
@@ -223,6 +243,13 @@ function AppContent() {
           </AdminLayout>
         </AdminProtectedRoute>
       } />
+      <Route path="/admin/payment-settings" element={
+        <AdminProtectedRoute>
+          <AdminLayout>
+            <PaymentSettings />
+          </AdminLayout>
+        </AdminProtectedRoute>
+      } />
       
       {/* Catch all route */}
       <Route path="*" element={<NotFoundPage />} />
@@ -234,6 +261,7 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <SessionMonitorWrapper>
+          <UserStatusMonitor />
           <AdminProvider>
             <WalletProvider>
               <SocketProvider>

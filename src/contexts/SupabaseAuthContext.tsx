@@ -365,6 +365,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Prefer backend auth when flag enabled
       if ((import.meta as any).env?.VITE_USE_BACKEND_AUTH === 'true') {
+        try {
           const r = await BackendAuthService.login(email, password);
           // Immediately call /me to pull extended fields (country/referral)
           let extended = r;
@@ -384,22 +385,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             createdAt: new Date(),
             lastLogin: new Date(),
             country: (extended as any)?.user?.country || 'India',
-            referralCode: (extended as any)?.user?.referralCode || null
+            referralCode: (extended as any)?.user?.referralCode || null,
+            status: (extended as any)?.user?.status || 'active'
           };
-        setUser(convertedUser);
-        setIsAuthenticated(true);
-        localStorage.setItem('elitebet_backend_token', r.token);
-        localStorage.setItem('elitebet_user_session', JSON.stringify({ user: convertedUser, token: r.token, expiresAt: new Date(Date.now()+7*864e5).toISOString() }));
-        // Sync user email/name into Mongo so Admin shows real email
-        try {
-          const base = ((import.meta as any).env?.VITE_BACKEND_URL || 'http://localhost:3001');
-          await fetch(`${base}/api/auth/sync-user`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: convertedUser.id, email: convertedUser.email, firstName: convertedUser.firstName, lastName: convertedUser.lastName })
-          });
-        } catch {}
-        toast.success('Login successful!');
-        return;
+          setUser(convertedUser);
+          setIsAuthenticated(true);
+          localStorage.setItem('elitebet_backend_token', r.token);
+          localStorage.setItem('elitebet_user_session', JSON.stringify({ user: convertedUser, token: r.token, expiresAt: new Date(Date.now()+7*864e5).toISOString() }));
+          // Sync user email/name into Mongo so Admin shows real email
+          try {
+            const base = ((import.meta as any).env?.VITE_BACKEND_URL || 'http://localhost:3001');
+            await fetch(`${base}/api/auth/sync-user`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: convertedUser.id, email: convertedUser.email, firstName: convertedUser.firstName, lastName: convertedUser.lastName })
+            });
+          } catch {}
+          toast.success('Login successful!');
+          return;
+        } catch (loginError: any) {
+          // Handle account suspended/closed errors
+          const errorData = loginError.response || loginError;
+          
+          if (errorData.statusCode === 'ACCOUNT_SUSPENDED') {
+            toast.error(
+              `⚠️ Account Suspended\n\nYour account has been suspended.\n\nPlease contact admin:\n${errorData.contactEmail || 'admin@spinzos.com'}`,
+              { duration: 8000, style: { minWidth: '350px' } }
+            );
+            throw new Error('Account suspended. Please contact admin.');
+          }
+          
+          if (errorData.statusCode === 'ACCOUNT_CLOSED') {
+            toast.error(
+              `🔒 Account Closed\n\nYour account has been permanently closed.\n\nContact: ${errorData.contactEmail || 'admin@spinzos.com'}`,
+              { duration: 8000, style: { minWidth: '350px' } }
+            );
+            throw new Error('Account closed. Please contact admin.');
+          }
+          
+          // Re-throw other errors
+          throw loginError;
+        }
       }
 
       const result = await SupabaseAuthService.signIn(email, password);
