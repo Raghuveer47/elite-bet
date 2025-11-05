@@ -153,7 +153,7 @@ export function KYCVerificationView() {
         throw new Error(error.message || 'Failed to send OTP');
       }
 
-      const data = await response.json();
+      await response.json();
       setOtpSent(true);
       toast.success('OTP sent! Check your email at ' + user!.email);
     } catch (error) {
