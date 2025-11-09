@@ -112,13 +112,6 @@ export function AdminLoginPage() {
             </Button>
           </form>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-            <p className="text-sm text-red-300 mb-2">Demo Admin Credentials:</p>
-            <p className="text-xs text-red-400">Email: admin@spinzos.com</p>
-            <p className="text-xs text-red-400">Password: Admin123!</p>
-          </div>
-
           {/* Security Notice */}
           <div className="mt-6 p-4 bg-slate-700/50 rounded-lg border border-slate-600">
             <div className="flex items-start space-x-2">
