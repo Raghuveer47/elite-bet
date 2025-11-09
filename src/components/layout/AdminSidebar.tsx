@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   Shield, BarChart3, Users, DollarSign,
   MessageCircle, Settings, Wallet,
-  ChevronLeft, ChevronRight, LogOut, CreditCard
+  ChevronLeft, ChevronRight, LogOut, CreditCard, Gamepad2
 } from 'lucide-react';
 import { useAdmin } from '../../contexts/SupabaseAdminContext';
 import { Button } from '../ui/Button';
@@ -53,6 +53,13 @@ export function AdminSidebar() {
       icon: CreditCard,
       badge: null,
       description: 'Configure payment methods'
+    },
+    { 
+      name: 'Game Transactions', 
+      href: '/admin/game-transactions', 
+      icon: Gamepad2,
+      badge: null,
+      description: 'View all game bets & results'
     },
     // Hidden - Game Management
     // { 

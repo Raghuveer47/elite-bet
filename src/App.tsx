@@ -38,6 +38,7 @@ import { LiveChatManagement } from './pages/admin/LiveChatManagement';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { WithdrawalsManagement } from './pages/admin/WithdrawalsManagement';
 import { PaymentSettings } from './pages/admin/PaymentSettings';
+import { GameTransactions } from './pages/admin/GameTransactions';
 import { NotFoundPage } from './pages/NotFoundPage';
 // import { ActivityFeed } from './components/notifications/ActivityFeed';
 // import { FloatingWinners } from './components/notifications/FloatingWinners';
@@ -247,6 +248,13 @@ function AppContent() {
         <AdminProtectedRoute>
           <AdminLayout>
             <PaymentSettings />
+          </AdminLayout>
+        </AdminProtectedRoute>
+      } />
+      <Route path="/admin/game-transactions" element={
+        <AdminProtectedRoute>
+          <AdminLayout>
+            <GameTransactions />
           </AdminLayout>
         </AdminProtectedRoute>
       } />

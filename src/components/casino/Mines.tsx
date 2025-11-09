@@ -85,82 +85,154 @@ export default function Mines({ gameId = 'mines', gameName = 'Mines' }: { gameId
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto flex flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <label className="text-slate-300">Bet (₹)</label>
-          <input
-            type="number"
-            min={10}
-            step={10}
-            value={betAmount}
-            disabled={status === 'playing'}
-            onChange={(e) => setBetAmount(Math.max(10, Number(e.target.value) || 10))}
-            className="w-28 rounded bg-slate-800 border border-slate-700 px-3 py-2 text-white"
-          />
-          <div className="flex gap-2">
-            {[10, 50, 100, 500, 1000].map(v => (
-              <button key={v} onClick={() => status !== 'playing' && setBetAmount(v)} className={`px-3 py-1 rounded border ${betAmount === v ? 'border-yellow-400 text-yellow-300' : 'border-slate-600 text-slate-300'}`}>₹{v}</button>
-            ))}
+    <div className="w-full max-w-full sm:max-w-[600px] md:max-w-3xl mx-auto flex flex-col gap-3 sm:gap-4 md:gap-6 p-2 sm:p-4 md:p-6 bg-gradient-to-b from-slate-800 via-emerald-900/20 to-slate-900 rounded-none sm:rounded-2xl border-0 sm:border-2 border-emerald-500/30 shadow-2xl">
+      {/* Game Title */}
+      <div className="text-center mb-2 sm:mb-3 md:mb-4">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-emerald-400 via-green-500 to-teal-500 bg-clip-text text-transparent mb-1 sm:mb-2">
+          💎 {gameName} 💎
+        </h2>
+        <p className="text-xs sm:text-sm text-slate-400">Find the diamonds, avoid the mines!</p>
+      </div>
+
+      {/* Balance & Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 mb-2 sm:mb-3">
+        <div className="bg-slate-800/50 rounded-lg p-2 sm:p-3 text-center">
+          <p className="text-[10px] sm:text-xs text-slate-400">Balance</p>
+          <p className="text-sm sm:text-base md:text-lg font-bold text-green-400">₹{balance.toLocaleString('en-IN')}</p>
+        </div>
+        <div className="bg-slate-800/50 rounded-lg p-2 sm:p-3 text-center">
+          <p className="text-[10px] sm:text-xs text-slate-400">Multiplier</p>
+          <p className="text-sm sm:text-base md:text-lg font-bold text-yellow-400">{currentMultiplier.toFixed(2)}x</p>
+        </div>
+        <div className="bg-slate-800/50 rounded-lg p-2 sm:p-3 text-center col-span-2 sm:col-span-1">
+          <p className="text-[10px] sm:text-xs text-slate-400">Potential Win</p>
+          <p className="text-sm sm:text-base md:text-lg font-bold text-emerald-400">₹{potentialPayout.toLocaleString('en-IN')}</p>
+        </div>
+      </div>
+
+      {/* Bet Controls */}
+      <div className="bg-gradient-to-r from-slate-800 via-emerald-800/20 to-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-emerald-500/30">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          {/* Bet Amount */}
+          <div>
+            <label className="block text-xs sm:text-sm font-bold text-emerald-400 mb-2">Bet Amount (₹)</label>
+            <input
+              type="number"
+              min={10}
+              step={10}
+              value={betAmount}
+              disabled={status === 'playing'}
+              onChange={(e) => setBetAmount(Math.max(10, Number(e.target.value) || 10))}
+              className="w-full rounded-lg bg-slate-700 border border-slate-600 px-3 py-2 text-white text-center font-bold"
+            />
+            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2">
+              {[10, 50, 100, 500, 1000].map(v => (
+                <button 
+                  key={v} 
+                  onClick={() => status !== 'playing' && setBetAmount(v)} 
+                  className={`flex-1 min-w-[50px] px-2 py-1 text-xs sm:text-sm rounded border transition-all ${betAmount === v ? 'border-yellow-400 bg-yellow-400/10 text-yellow-300 font-bold' : 'border-slate-600 text-slate-300 hover:bg-slate-700'}`}
+                >
+                  ₹{v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Mines Count */}
+          <div>
+            <label className="block text-xs sm:text-sm font-bold text-red-400 mb-2">Number of Mines</label>
+            <input
+              type="number"
+              min={1}
+              max={24}
+              value={minesCount}
+              disabled={status === 'playing'}
+              onChange={(e) => setMinesCount(Math.min(24, Math.max(1, Number(e.target.value) || 1)))}
+              className="w-full rounded-lg bg-slate-700 border border-slate-600 px-3 py-2 text-white text-center font-bold"
+            />
+            <p className="text-[10px] sm:text-xs text-slate-400 mt-2">Higher mines = Higher multiplier</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <label className="text-slate-300">Mines</label>
-          <input
-            type="number"
-            min={1}
-            max={24}
-            value={minesCount}
-            disabled={status === 'playing'}
-            onChange={(e) => setMinesCount(Math.min(24, Math.max(1, Number(e.target.value) || 1)))}
-            className="w-20 rounded bg-slate-800 border border-slate-700 px-3 py-2 text-white"
-          />
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-slate-300">Mult: <span className="font-bold text-green-400">{currentMultiplier.toFixed(2)}x</span></div>
-          <div className="text-slate-300">Payout: <span className="font-bold text-green-400">₹{potentialPayout.toLocaleString('en-IN')}</span></div>
-        </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
         {status !== 'playing' ? (
-          <button onClick={startRound} disabled={betAmount > balance} className="px-5 py-3 rounded bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-60">Start</button>
+          <button 
+            onClick={startRound} 
+            disabled={betAmount > balance} 
+            className="w-full sm:w-auto px-6 sm:px-8 md:px-10 py-3 sm:py-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-bold text-sm sm:text-base md:text-lg disabled:opacity-60 shadow-xl transform active:scale-95 sm:hover:scale-105 transition-all"
+          >
+            🎮 START GAME
+          </button>
         ) : (
           <>
-            <button onClick={cashOut} className="px-5 py-3 rounded bg-yellow-500 hover:bg-yellow-400 text-black font-semibold">Cash Out ₹{potentialPayout.toLocaleString('en-IN')}</button>
-            <button onClick={reset} className="px-4 py-3 rounded border border-slate-600 text-slate-300">Give Up</button>
+            <button 
+              onClick={cashOut} 
+              className="w-full sm:flex-1 px-6 sm:px-8 py-3 sm:py-4 rounded-lg sm:rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-black font-bold text-sm sm:text-base md:text-lg shadow-xl transform active:scale-95 sm:hover:scale-105 transition-all"
+            >
+              💰 CASH OUT ₹{potentialPayout.toLocaleString('en-IN')}
+            </button>
+            <button 
+              onClick={reset} 
+              className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-4 rounded-lg border-2 border-slate-600 text-slate-300 hover:bg-slate-700 font-bold text-sm sm:text-base"
+            >
+              Give Up
+            </button>
           </>
         )}
-        <div className={`ml-auto px-3 py-1 rounded text-sm ${status==='playing'?'bg-blue-500/20 text-blue-300':status==='busted'?'bg-red-500/20 text-red-300':status==='cashed'?'bg-green-500/20 text-green-300':'bg-slate-700 text-slate-300'}`}>{status.toUpperCase()}</div>
+        <div className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-bold ${status==='playing'?'bg-blue-500/20 text-blue-300 border border-blue-500/30':status==='busted'?'bg-red-500/20 text-red-300 border border-red-500/30':status==='cashed'?'bg-green-500/20 text-green-300 border border-green-500/30':'bg-slate-700 text-slate-300'}`}>
+          {status.toUpperCase()}
+        </div>
       </div>
 
-      <div className="grid" style={{ gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`, gap: 10 }}>
-        {Array.from({ length: TOTAL_CELLS }, (_, idx) => {
-          const isRevealed = revealed.has(idx) || (status !== 'playing' && mines.has(idx));
-          const isMine = mines.has(idx);
-          const cellState: CellState = isRevealed ? (isMine ? 'mine' : 'gem') : 'hidden';
-          return (
-            <button
-              key={idx}
-              onClick={() => reveal(idx)}
-              disabled={status !== 'playing'}
-              className={`aspect-square rounded-xl border flex items-center justify-center text-xl font-bold select-none transition-transform duration-150 ${
-                cellState==='hidden' ? 'bg-slate-800 hover:bg-slate-700 border-slate-700' :
-                cellState==='gem' ? 'bg-emerald-600/80 border-emerald-400 text-white' :
-                'bg-rose-700/80 border-rose-400 text-white'
-              }`}
-            >
-              <span className={`${cellState==='hidden' ? '' : 'text-3xl sm:text-4xl'}`}>
-                {cellState==='gem' ? '💎' : cellState==='mine' ? '💣' : ''}
-              </span>
-            </button>
-          );
-        })}
+      {/* Mine Grid */}
+      <div className="bg-slate-900/50 rounded-lg sm:rounded-xl p-2 sm:p-3 md:p-4 border border-emerald-500/30">
+        <div className="grid gap-1.5 sm:gap-2 md:gap-3" style={{ gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))` }}>
+          {Array.from({ length: TOTAL_CELLS }, (_, idx) => {
+            const isRevealed = revealed.has(idx) || (status !== 'playing' && mines.has(idx));
+            const isMine = mines.has(idx);
+            const cellState: CellState = isRevealed ? (isMine ? 'mine' : 'gem') : 'hidden';
+            return (
+              <button
+                key={idx}
+                onClick={() => reveal(idx)}
+                disabled={status !== 'playing'}
+                className={`aspect-square rounded-lg sm:rounded-xl border-2 flex items-center justify-center font-bold select-none transition-all duration-200 transform active:scale-95 sm:hover:scale-105 ${
+                  cellState==='hidden' ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-slate-600 shadow-lg' :
+                  cellState==='gem' ? 'bg-gradient-to-br from-emerald-500 to-green-600 border-emerald-400 text-white shadow-xl shadow-emerald-500/50 animate-pulse' :
+                  'bg-gradient-to-br from-rose-600 to-red-700 border-rose-400 text-white shadow-xl shadow-red-500/50 animate-pulse'
+                }`}
+              >
+                <span className={`${cellState==='hidden' ? 'text-slate-600' : 'text-2xl sm:text-3xl md:text-4xl'}`}>
+                  {cellState==='gem' ? '💎' : cellState==='mine' ? '💣' : '?'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
+      {/* Result Actions */}
       {(status==='busted' || status==='cashed') && (
-        <div className="flex items-center gap-3">
-          <button onClick={reset} className="px-5 py-3 rounded bg-slate-700 hover:bg-slate-600 text-white">New Round</button>
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
+          {status === 'busted' ? (
+            <div className="w-full bg-red-900/30 border border-red-500/50 rounded-lg p-3 sm:p-4 text-center">
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-red-400 mb-1">💥 BUSTED!</p>
+              <p className="text-xs sm:text-sm text-slate-300">You hit a mine!</p>
+            </div>
+          ) : (
+            <div className="w-full bg-green-900/30 border border-green-500/50 rounded-lg p-3 sm:p-4 text-center">
+              <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-400 mb-1">🎉 WINNER!</p>
+              <p className="text-xs sm:text-sm text-slate-300">You cashed out ₹{potentialPayout.toLocaleString('en-IN')}</p>
+            </div>
+          )}
+          <button 
+            onClick={reset} 
+            className="w-full sm:w-auto px-6 sm:px-8 py-3 rounded-lg sm:rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm sm:text-base shadow-lg"
+          >
+            🔄 New Round
+          </button>
         </div>
       )}
     </div>

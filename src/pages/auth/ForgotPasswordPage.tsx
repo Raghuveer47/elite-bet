@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, ArrowLeft, Send, CheckCircle } from 'lucide-react';
+import { Mail, ArrowLeft, Send, CheckCircle, Lock, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
@@ -8,9 +8,15 @@ import toast from 'react-hot-toast';
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string }>({});
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; otp?: string; password?: string }>({});
+  const [otpExpiry, setOtpExpiry] = useState<number>(600); // 10 minutes
   const navigate = useNavigate();
 
   const validateEmail = () => {
@@ -26,7 +32,7 @@ export function ForgotPasswordPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateEmail()) return;
@@ -52,7 +58,6 @@ export function ForgotPasswordPage() {
           icon: '⚠️'
         });
         
-        // Show popup and redirect to register page
         setTimeout(() => {
           toast('Please create an account first', {
             duration: 4000,
@@ -67,46 +72,317 @@ export function ForgotPasswordPage() {
 
       if (data.success) {
         setOtpSent(true);
-        toast.success(data.message);
+        setOtpExpiry(data.expiresIn || 600);
         
-        // Show reset link in development mode
-        if (data.resetLink) {
-          console.log('🔗 Password Reset Link:', data.resetLink);
-          toast.success(`Development mode - Check console for reset link`, { duration: 10000 });
+        // Show OTP in development mode
+        if (data.otp) {
+          console.log('🔐 OTP:', data.otp);
+          toast.success(`OTP sent! (Dev: ${data.otp})`, { duration: 8000 });
+        } else {
+          toast.success('OTP sent to your email!');
         }
       } else {
-        toast.error(data.message || 'Failed to send reset link');
+        toast.error(data.message || 'Failed to send OTP');
         setErrors({ email: data.message });
       }
     } catch (error) {
       console.error('Forgot password error:', error);
-      toast.error('Failed to send reset link. Please try again.');
+      toast.error('Failed to send OTP. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (otpSent) {
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!otp || otp.length !== 6) {
+      setErrors({ otp: 'Please enter a valid 6-digit OTP' });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          email: email.toLowerCase(),
+          otp
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setOtpVerified(true);
+        toast.success('OTP verified! Now set your new password.');
+      } else {
+        toast.error(data.message || 'Invalid OTP');
+        setErrors({ otp: data.message });
+      }
+    } catch (error) {
+      console.error('Verify OTP error:', error);
+      toast.error('Failed to verify OTP. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const newErrors: { password?: string } = {};
+    
+    if (!newPassword || newPassword.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    } else if (newPassword !== confirmPassword) {
+      newErrors.password = 'Passwords do not match';
+    }
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          email: email.toLowerCase(),
+          otp,
+          newPassword
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('Password reset successfully!');
+        setTimeout(() => {
+          navigate('/login');
+        }, 1500);
+      } else {
+        toast.error(data.message || 'Failed to reset password');
+        setErrors({ password: data.message });
+      }
+    } catch (error) {
+      console.error('Reset password error:', error);
+      toast.error('Failed to reset password. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    setIsLoading(true);
+    
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const response = await fetch(`${backendUrl}/api/auth/resend-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: email.toLowerCase() })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setOtpExpiry(data.expiresIn || 600);
+        
+        if (data.otp) {
+          console.log('🔐 New OTP:', data.otp);
+          toast.success(`OTP resent! (Dev: ${data.otp})`, { duration: 8000 });
+        } else {
+          toast.success('OTP resent to your email!');
+        }
+      } else {
+        toast.error(data.message || 'Failed to resend OTP');
+      }
+    } catch (error) {
+      console.error('Resend OTP error:', error);
+      toast.error('Failed to resend OTP. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Step 2: OTP Verification
+  if (otpSent && !otpVerified) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
         <div className="max-w-md w-full">
-          <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 shadow-2xl text-center">
-            <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-8 h-8 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-4">Check Your Email</h2>
-            <p className="text-slate-400 mb-6">
-              We've sent a password reset link to <strong className="text-white">{email}</strong>
-            </p>
-            <p className="text-sm text-slate-500 mb-4">
-              Click the link in your email to reset your password. The link expires in 1 hour and can only be used once.
-            </p>
-            <Link 
-              to="/login"
-              className="inline-block mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 shadow-2xl">
+            {/* Back Button */}
+            <button
+              onClick={() => {
+                setOtpSent(false);
+                setOtp('');
+              }}
+              className="inline-flex items-center text-slate-400 hover:text-white mb-6 transition-colors"
             >
-              Back to Login
-            </Link>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Change Email
+            </button>
+
+            {/* Header */}
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Mail className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-white mb-2">Enter OTP</h1>
+              <p className="text-slate-400">
+                We've sent a 6-digit code to <strong className="text-white">{email}</strong>
+              </p>
+              <p className="text-sm text-slate-500 mt-2">
+                Code expires in {Math.floor(otpExpiry / 60)} minutes
+              </p>
+            </div>
+
+            {/* OTP Form */}
+            <form onSubmit={handleVerifyOTP} className="space-y-6">
+              <div>
+                <label htmlFor="otp" className="block text-sm font-medium text-slate-300 mb-2">
+                  6-Digit OTP
+                </label>
+                <Input
+                  id="otp"
+                  type="text"
+                  value={otp}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                    setOtp(value);
+                    setErrors({});
+                  }}
+                  placeholder="Enter 6-digit OTP"
+                  maxLength={6}
+                  error={errors.otp}
+                  autoFocus
+                  className="text-center text-2xl tracking-widest"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                fullWidth
+                disabled={isLoading || otp.length !== 6}
+                icon={isLoading ? <LoadingSpinner size="sm" /> : <CheckCircle className="w-5 h-5" />}
+              >
+                {isLoading ? 'Verifying...' : 'Verify OTP'}
+              </Button>
+            </form>
+
+            {/* Resend OTP */}
+            <div className="mt-6 text-center">
+              <p className="text-sm text-slate-400 mb-2">
+                Didn't receive the code?
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResendOTP}
+                disabled={isLoading}
+                icon={<RefreshCw className="w-4 h-4" />}
+              >
+                Resend OTP
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Step 3: Set New Password (after OTP verified)
+  if (otpVerified) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
+        <div className="max-w-md w-full">
+          <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 shadow-2xl">
+            {/* Header */}
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Lock className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-white mb-2">Set New Password</h1>
+              <p className="text-slate-400">
+                Enter your new password for <strong className="text-white">{email}</strong>
+              </p>
+            </div>
+
+            {/* Password Form */}
+            <form onSubmit={handleResetPassword} className="space-y-6">
+              <div>
+                <label htmlFor="newPassword" className="block text-sm font-medium text-slate-300 mb-2">
+                  New Password
+                </label>
+                <Input
+                  id="newPassword"
+                  type={showPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setErrors({});
+                  }}
+                  placeholder="Enter new password"
+                  icon={<Lock className="w-5 h-5" />}
+                  error={errors.password}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-300 mb-2">
+                  Confirm Password
+                </label>
+                <Input
+                  id="confirmPassword"
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setErrors({});
+                  }}
+                  placeholder="Confirm new password"
+                  icon={<Lock className="w-5 h-5" />}
+                />
+              </div>
+
+              <label className="flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={showPassword}
+                  onChange={(e) => setShowPassword(e.target.checked)}
+                  className="rounded border-slate-600 bg-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-800" 
+                />
+                <span className="ml-2 text-sm text-slate-400">Show passwords</span>
+              </label>
+
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                fullWidth
+                disabled={isLoading}
+                icon={isLoading ? <LoadingSpinner size="sm" /> : <CheckCircle className="w-5 h-5" />}
+              >
+                {isLoading ? 'Resetting...' : 'Reset Password'}
+              </Button>
+            </form>
           </div>
         </div>
       </div>
@@ -138,7 +414,7 @@ export function ForgotPasswordPage() {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSendOTP} className="space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
                 Email Address
@@ -166,7 +442,7 @@ export function ForgotPasswordPage() {
               disabled={isLoading}
               icon={isLoading ? <LoadingSpinner size="sm" /> : <Send className="w-5 h-5" />}
             >
-              {isLoading ? 'Sending...' : 'Send Reset Code'}
+              {isLoading ? 'Sending...' : 'Send OTP'}
             </Button>
           </form>
 
@@ -184,7 +460,7 @@ export function ForgotPasswordPage() {
         {/* Security Note */}
         <div className="mt-6 text-center">
           <p className="text-xs text-slate-500">
-            For security reasons, we'll send the reset code to the email address associated with your account.
+            For security reasons, we'll send a 6-digit OTP to the email address associated with your account. The OTP expires in 10 minutes.
           </p>
         </div>
       </div>

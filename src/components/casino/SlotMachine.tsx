@@ -468,81 +468,82 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
   const totalBet = betAmount * activePaylines;
 
   return (
-    <div className="bg-gradient-to-b from-slate-800 via-purple-900/20 to-slate-900 rounded-3xl p-4 md:p-8 border-2 border-purple-500/30 relative overflow-hidden shadow-2xl max-w-[1100px] mx-auto w-full">
+    <div className="bg-gradient-to-b from-slate-800 via-purple-900/20 to-slate-900 rounded-none sm:rounded-2xl lg:rounded-3xl p-2 sm:p-4 md:p-6 border-0 sm:border-2 border-purple-500/30 relative overflow-hidden shadow-2xl max-w-full sm:max-w-[1100px] mx-auto w-full min-h-screen sm:min-h-0">
       {/* Animated Background */}
       <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-0 left-0 w-40 h-40 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-0 right-0 w-48 h-48 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-0 left-0 w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-0 right-0 w-28 h-28 sm:w-36 sm:h-36 md:w-48 md:h-48 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full blur-3xl animate-pulse"></div>
       </div>
 
       {/* Mega Win Overlay */}
       {megaWin && (
-        <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/90 to-orange-500/90 flex items-center justify-center z-50 rounded-3xl animate-pulse">
-          <div className="text-center">
-            <Crown className="w-24 h-24 text-yellow-200 mx-auto mb-4 animate-bounce" />
-            <h2 className="text-6xl font-bold text-white mb-4 animate-bounce">JACKPOT!</h2>
-            <p className="text-3xl font-bold text-yellow-200">👑 CROWN JACKPOT WON! 👑</p>
-            <p className="text-2xl text-white mt-2">{formatCurrency(jackpotAmount)}</p>
+        <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/90 to-orange-500/90 flex items-center justify-center z-50 rounded-xl sm:rounded-2xl lg:rounded-3xl animate-pulse">
+          <div className="text-center px-4">
+            <Crown className="w-12 h-12 sm:w-16 sm:h-16 md:w-24 md:h-24 text-yellow-200 mx-auto mb-2 sm:mb-3 md:mb-4 animate-bounce" />
+            <h2 className="text-3xl sm:text-4xl md:text-6xl font-bold text-white mb-2 sm:mb-3 md:mb-4 animate-bounce">JACKPOT!</h2>
+            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-yellow-200">👑 CROWN JACKPOT WON! 👑</p>
+            <p className="text-lg sm:text-xl md:text-2xl text-white mt-1 sm:mt-2">{formatCurrency(jackpotAmount)}</p>
           </div>
         </div>
       )}
 
       {/* Game Header */}
-      <div className="relative z-10 text-center mb-8">
-        <div className="flex items-center justify-center space-x-4 mb-6">
-          <Crown className="w-8 h-8 md:w-10 md:h-10 text-yellow-400 animate-pulse" />
-          <h2 className="text-3xl md:text-5xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
+      <div className="relative z-10 text-center mb-3 sm:mb-4 md:mb-6">
+        <div className="flex items-center justify-center space-x-2 sm:space-x-3 md:space-x-4 mb-2 sm:mb-3 md:mb-4">
+          <Crown className="w-5 h-5 sm:w-7 sm:h-7 md:w-10 md:h-10 text-yellow-400 animate-pulse" />
+          <h2 className="text-xl sm:text-2xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
             {gameName}
           </h2>
-          <Crown className="w-8 h-8 md:w-10 md:h-10 text-yellow-400 animate-pulse" />
+          <Crown className="w-5 h-5 sm:w-7 sm:h-7 md:w-10 md:h-10 text-yellow-400 animate-pulse" />
         </div>
         
-        {/* Progressive Jackpot */}
-        <div className="bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 rounded-2xl p-6 mb-6 border-4 border-yellow-400 shadow-2xl shadow-yellow-400/30 relative overflow-hidden">
+        {/* Progressive Jackpot - More compact on mobile */}
+        <div className="bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 lg:p-6 mb-2 sm:mb-3 md:mb-4 border-2 border-yellow-400 shadow-xl shadow-yellow-400/30 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 animate-pulse"></div>
-          <div className="relative flex items-center justify-center space-x-4">
-            <Zap className="w-6 h-6 md:w-8 md:h-8 text-yellow-200 animate-bounce" />
+          <div className="relative flex items-center justify-center space-x-2 sm:space-x-3">
+            <Zap className="w-4 h-4 sm:w-5 sm:h-5 md:w-8 md:h-8 text-yellow-200 animate-bounce" />
             <div className="text-center">
-              <p className="text-yellow-200 text-base md:text-lg font-bold tracking-wider">PROGRESSIVE JACKPOT</p>
-              <p className="text-2xl md:text-4xl font-bold text-white animate-pulse tracking-wider">
+              <p className="text-yellow-200 text-[10px] sm:text-xs md:text-sm lg:text-base font-bold tracking-wider">PROGRESSIVE JACKPOT</p>
+              <p className="text-lg sm:text-xl md:text-2xl lg:text-4xl font-bold text-white animate-pulse tracking-wider">
                 {formatCurrency(jackpotAmount)}
               </p>
-              <p className="text-yellow-200 text-sm">5 Crowns on any payline wins!</p>
+              <p className="text-yellow-200 text-[9px] sm:text-xs hidden sm:block">5 Crowns on any payline wins!</p>
             </div>
-            <Zap className="w-6 h-6 md:w-8 md:h-8 text-yellow-200 animate-bounce" />
+            <Zap className="w-4 h-4 sm:w-5 sm:h-5 md:w-8 md:h-8 text-yellow-200 animate-bounce" />
           </div>
         </div>
         
-        <div className="flex justify-center space-x-12 text-lg">
-          <div className="text-center">
-            <p className="text-slate-400 font-medium">Balance</p>
-            <p className="text-2xl font-bold text-green-400">{formatCurrency(walletUi)}</p>
+        {/* Stats - Grid layout for mobile */}
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-center sm:gap-4 md:gap-6 lg:gap-12 text-sm sm:text-base md:text-lg">
+          <div className="text-center bg-slate-800/50 rounded-lg p-2 sm:bg-transparent sm:p-0">
+            <p className="text-slate-400 font-medium text-[10px] sm:text-xs md:text-sm">Balance</p>
+            <p className="text-sm sm:text-base md:text-lg lg:text-2xl font-bold text-green-400">{formatCurrency(walletUi)}</p>
           </div>
-          <div className="text-center">
-            <p className="text-slate-400 font-medium">Last Win</p>
-            <p className="text-2xl font-bold text-yellow-400">{formatCurrency(lastWin)}</p>
+          <div className="text-center bg-slate-800/50 rounded-lg p-2 sm:bg-transparent sm:p-0">
+            <p className="text-slate-400 font-medium text-[10px] sm:text-xs md:text-sm">Last Win</p>
+            <p className="text-sm sm:text-base md:text-lg lg:text-2xl font-bold text-yellow-400">{formatCurrency(lastWin)}</p>
           </div>
-          <div className="text-center">
-            <p className="text-slate-400 font-medium">Last Loss</p>
-            <p className="text-2xl font-bold text-red-400">{formatCurrency(lastLoss)}</p>
+          <div className="text-center bg-slate-800/50 rounded-lg p-2 sm:bg-transparent sm:p-0">
+            <p className="text-slate-400 font-medium text-[10px] sm:text-xs md:text-sm">Last Loss</p>
+            <p className="text-sm sm:text-base md:text-lg lg:text-2xl font-bold text-red-400">{formatCurrency(lastLoss)}</p>
           </div>
-          <div className="text-center">
-            <p className="text-slate-400 font-medium">Multiplier</p>
-            <p className="text-2xl font-bold text-purple-400">{multiplier.toFixed(1)}x</p>
+          <div className="text-center bg-slate-800/50 rounded-lg p-2 sm:bg-transparent sm:p-0">
+            <p className="text-slate-400 font-medium text-[10px] sm:text-xs md:text-sm">Multiplier</p>
+            <p className="text-sm sm:text-base md:text-lg lg:text-2xl font-bold text-purple-400">{multiplier.toFixed(1)}x</p>
           </div>
         </div>
       </div>
 
       {/* Slot Machine */}
-      <div className="relative z-10 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 rounded-3xl p-4 md:p-8 mb-8 border-4 border-gradient-to-r from-yellow-600 to-orange-600 shadow-2xl">
+      <div className="relative z-10 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 rounded-lg sm:rounded-xl md:rounded-2xl p-1.5 sm:p-2 md:p-4 lg:p-6 mb-2 sm:mb-3 md:mb-6 border-2 border-yellow-500/30 shadow-2xl">
         {/* Machine Frame */}
-        <div className="bg-gradient-to-b from-yellow-600 via-orange-600 to-red-600 rounded-2xl p-3 mb-6 shadow-2xl">
-          <div className="bg-black rounded-xl p-3 md:p-6 shadow-inner">
-            <div className="grid grid-cols-3 gap-3 md:gap-4">
+        <div className="bg-gradient-to-b from-yellow-600 via-orange-600 to-red-600 rounded-lg md:rounded-xl p-1.5 sm:p-2 md:p-3 mb-2 sm:mb-3 md:mb-4 shadow-2xl">
+          <div className="bg-black rounded-md sm:rounded-lg md:rounded-xl p-1.5 sm:p-2 md:p-4 shadow-inner">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 md:gap-3">
               {reels.map((reel, reelIndex) => (
-                <div key={reelIndex} className="relative">
-                  <div className="bg-gradient-to-b from-slate-600 via-slate-700 to-slate-800 rounded-xl border-4 border-slate-500 overflow-hidden shadow-2xl">
+                <div key={reelIndex} className="relative pb-5 sm:pb-6 md:pb-8">
+                  <div className="bg-gradient-to-b from-slate-600 via-slate-700 to-slate-800 rounded-md sm:rounded-lg md:rounded-xl border border-slate-500 overflow-hidden shadow-2xl">
                     <div className={`transition-all duration-200 ${reelAnimations[reelIndex] ? 'animate-pulse' : ''}`}>
                       {reel.map((symbol, symbolIndex) => {
                         const isWinningSymbol = winLines.some(line => 
@@ -553,7 +554,7 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
                           <div
                             key={symbolIndex}
                             className={`
-                              w-16 h-16 md:w-24 md:h-24 flex items-center justify-center text-4xl md:text-5xl border-b-2 border-slate-600 last:border-b-0 relative
+                              w-full aspect-square flex items-center justify-center text-2xl xs:text-3xl sm:text-4xl md:text-5xl border-b border-slate-600 last:border-b-0 relative
                               ${isWinningSymbol 
                                 ? 'bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 animate-pulse shadow-2xl shadow-yellow-400/50 border-yellow-300' 
                                 : 'bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900'
@@ -578,8 +579,8 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
                     </div>
                   </div>
                   
-                  <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2">
-                    <span className="text-sm text-yellow-400 font-bold bg-slate-800 px-2 py-1 rounded-full border border-yellow-400">
+                  <div className="absolute -bottom-1 sm:-bottom-2 md:-bottom-4 left-1/2 transform -translate-x-1/2">
+                    <span className="text-[10px] sm:text-xs text-yellow-400 font-bold bg-slate-800 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full border border-yellow-400">
                       #{reelIndex + 1}
                     </span>
                   </div>
@@ -591,16 +592,16 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
 
         {/* Win Animation */}
         {winAnimation && winLines.length > 0 && (
-          <div className="text-center mb-6">
-            <div className="bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 rounded-2xl p-6 border-4 border-yellow-400 animate-pulse shadow-2xl shadow-yellow-400/50">
-              <div className="flex items-center justify-center space-x-4 mb-4">
-                <Star className="w-8 h-8 text-yellow-200 animate-spin" />
-                <p className="text-3xl font-bold text-white animate-bounce">
-                  🎉 WINNING COMBINATION! 🎉
+          <div className="text-center mb-2 sm:mb-3 md:mb-4 px-1">
+            <div className="bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 border-2 border-yellow-400 animate-pulse shadow-xl shadow-yellow-400/50">
+              <div className="flex items-center justify-center space-x-2 sm:space-x-3 mb-1 sm:mb-2">
+                <Star className="w-4 h-4 sm:w-5 sm:h-5 md:w-7 md:h-7 text-yellow-200 animate-spin" />
+                <p className="text-base sm:text-lg md:text-2xl font-bold text-white animate-bounce">
+                  🎉 WINNING! 🎉
                 </p>
-                <Star className="w-8 h-8 text-yellow-200 animate-spin" />
+                <Star className="w-4 h-4 sm:w-5 sm:h-5 md:w-7 md:h-7 text-yellow-200 animate-spin" />
               </div>
-              <p className="text-xl text-yellow-200 font-bold">
+              <p className="text-xs sm:text-sm md:text-base lg:text-lg text-yellow-200 font-bold">
                 {winLines.length} line{winLines.length > 1 ? 's' : ''} • {multiplier.toFixed(1)}x • {formatCurrency(lastWin)}
               </p>
             </div>
@@ -608,11 +609,11 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
         )}
 
         {/* Paylines Indicator */}
-        <div className="flex justify-center space-x-2 mb-6">
+        <div className="flex justify-center space-x-1.5 sm:space-x-2 md:space-x-3 mb-2 sm:mb-3 md:mb-4">
           {Array.from({ length: 5 }, (_, i) => (
             <div
               key={i}
-              className={`w-4 h-4 rounded-full border-2 transition-all duration-300 ${
+              className={`w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-4 md:h-4 rounded-full border-2 transition-all duration-300 ${
                 i < activePaylines 
                   ? winLines.includes(i)
                     ? 'bg-yellow-400 border-yellow-400 animate-pulse shadow-lg shadow-yellow-400/50'
@@ -626,76 +627,78 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
       </div>
 
       {/* Game Controls */}
-      <div className="relative z-10 space-y-6">
-        {/* Bet Controls */}
-        <div className="bg-gradient-to-r from-slate-800 via-purple-800/30 to-slate-800 rounded-2xl p-6 border-2 border-purple-500/30 shadow-xl">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="relative z-10 space-y-2 sm:space-y-3 md:space-y-4">
+        {/* Bet Controls - Optimized for Mobile */}
+        <div className="bg-gradient-to-r from-slate-800 via-purple-800/30 to-slate-800 rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-4 border-2 border-purple-500/30 shadow-xl">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3 md:gap-5">
             {/* Bet Amount */}
             <div className="text-center">
-              <label className="block text-lg font-bold text-purple-300 mb-4">Bet Per Line</label>
-              <div className="flex items-center space-x-3">
-                <Button variant="outline" size="sm" onClick={() => setBetAmount(1)} disabled={isPlaying}>
+              <label className="block text-xs sm:text-sm md:text-base font-bold text-purple-300 mb-1.5 sm:mb-2">Bet Per Line</label>
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
+                <Button variant="outline" size="sm" onClick={() => setBetAmount(1)} disabled={isPlaying} className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-1 sm:py-1.5">
                   Min
                 </Button>
-                <div className="flex items-center space-x-3 flex-1">
-                  <Coins className="w-6 h-6 text-yellow-400" />
+                <div className="flex items-center space-x-1 sm:space-x-2 flex-1">
+                  <Coins className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-yellow-400" />
                   <Input
                     type="number"
                     value={betAmount}
                     onChange={(e) => setBetAmount(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="text-center text-xl font-bold"
+                    className="text-center text-sm sm:text-base md:text-lg font-bold py-1 sm:py-2"
                     min="1"
                   max={Math.floor(Math.max(0, getAvailableBalance()) / activePaylines)}
                     disabled={isPlaying}
                   />
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setBetAmount(Math.min(100, Math.floor(Math.max(0, getAvailableBalance()) / activePaylines)))} disabled={isPlaying}>
+                <Button variant="outline" size="sm" onClick={() => setBetAmount(Math.min(100, Math.floor(Math.max(0, getAvailableBalance()) / activePaylines)))} disabled={isPlaying} className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-1 sm:py-1.5">
                   Max
                 </Button>
               </div>
-              <p className="text-sm text-slate-400 mt-3 font-medium">
+              <p className="text-[10px] sm:text-xs text-slate-400 mt-1 sm:mt-2 font-medium">
                 Total bet: <span className="text-white font-bold">{formatCurrency(totalBet)}</span>
               </p>
             </div>
 
             {/* Paylines */}
             <div className="text-center">
-              <label className="block text-lg font-bold text-blue-300 mb-4">Active Paylines</label>
-              <div className="flex items-center space-x-3">
+              <label className="block text-xs sm:text-sm md:text-base font-bold text-blue-300 mb-1.5 sm:mb-2">Active Paylines</label>
+              <div className="flex items-center space-x-2">
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => setActivePaylines(Math.max(1, activePaylines - 1))}
                   disabled={isPlaying || activePaylines <= 1}
+                  className="px-2 sm:px-3 py-1 sm:py-2 text-base sm:text-lg"
                 >
                   -
                 </Button>
-                <div className="flex-1 text-center bg-slate-700 rounded-xl p-3 border-2 border-blue-500/30">
-                  <span className="text-3xl font-bold text-blue-400">{activePaylines}</span>
-                  <span className="text-lg text-slate-400 ml-2">/ 5</span>
+                <div className="flex-1 text-center bg-slate-700 rounded-lg p-2 border-2 border-blue-500/30">
+                  <span className="text-xl sm:text-2xl font-bold text-blue-400">{activePaylines}</span>
+                  <span className="text-xs sm:text-sm text-slate-400 ml-1">/ 5</span>
                 </div>
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => setActivePaylines(Math.min(5, activePaylines + 1))}
                   disabled={isPlaying || activePaylines >= 5}
+                  className="px-2 sm:px-3 py-1 sm:py-2 text-base sm:text-lg"
                 >
                   +
                 </Button>
               </div>
-              <p className="text-sm text-slate-400 mt-3 font-medium">
+              <p className="text-[10px] sm:text-xs text-slate-400 mt-1 sm:mt-2 font-medium">
                 More lines = more chances
               </p>
             </div>
 
             {/* Auto Spin */}
             <div className="text-center">
-              <label className="block text-lg font-bold text-green-300 mb-4">Auto Spin</label>
-              <div className="space-y-3">
+              <label className="block text-xs sm:text-sm md:text-base font-bold text-green-300 mb-1.5 sm:mb-2">Auto Spin</label>
+              <div className="space-y-1.5 sm:space-y-2">
                 <select
                   value={maxAutoSpins}
                   onChange={(e) => setMaxAutoSpins(parseInt(e.target.value))}
-                  className="w-full px-4 py-3 bg-slate-700 border-2 border-green-500/30 rounded-xl text-white text-lg font-bold text-center"
+                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 bg-slate-700 border-2 border-green-500/30 rounded-lg text-white text-xs sm:text-sm md:text-base font-bold text-center"
                   disabled={isPlaying}
                 >
                   <option value={10}>10 spins</option>
@@ -707,7 +710,7 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
                   variant={autoSpin ? "danger" : "secondary"}
                   onClick={toggleAutoSpin}
                   disabled={isPlaying && !autoSpin}
-                  className="w-full py-3 text-lg font-bold"
+                  className="w-full py-1.5 sm:py-2 text-xs sm:text-sm md:text-base font-bold"
                 >
                   {autoSpin ? `Stop (${autoSpinCount}/${maxAutoSpins})` : 'Start Auto'}
                 </Button>
@@ -717,7 +720,7 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
         </div>
 
         {/* Main Controls */}
-        <div className="flex justify-center space-x-6">
+        <div className="flex flex-col gap-2 sm:gap-3 px-1">
           <Button
             onClick={async () => {
               console.log('[SLOTS] Button clicked!', { isSpinning, isPlaying });
@@ -736,129 +739,128 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
               handleSpin();
             }}
             disabled={totalBet > walletUi || totalBet < 1}
-            className="px-16 py-6 text-2xl font-bold bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 hover:from-green-500 hover:via-blue-500 hover:to-purple-500 transform hover:scale-110 transition-all duration-300 shadow-2xl shadow-blue-500/30 rounded-2xl border-2 border-blue-400"
+            className="w-full px-6 sm:px-10 md:px-16 py-3 sm:py-4 md:py-5 text-base sm:text-lg md:text-2xl font-bold bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 hover:from-green-500 hover:via-blue-500 hover:to-purple-500 transform active:scale-95 sm:hover:scale-105 transition-all duration-300 shadow-2xl shadow-blue-500/30 rounded-lg sm:rounded-xl border-2 border-blue-400"
           >
             {isSpinning ? (
-              <div className="flex items-center space-x-3">
-                <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>SPINNING... (Click to Reset)</span>
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-4 h-4 sm:w-5 sm:h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm sm:text-base md:text-xl">SPINNING...</span>
               </div>
             ) : (
               <>
-                <Play className="w-8 h-8 mr-3" />
+                <Play className="w-4 h-4 sm:w-5 sm:h-5 md:w-7 md:h-7 mr-2 inline" />
                 SPIN {formatCurrency(totalBet)}
               </>
             )}
           </Button>
           
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              forceReset();
-              resetSession();
-            }} 
-            className="px-8 py-6 text-xl font-bold border-2 border-purple-500 hover:bg-purple-500/20"
-          >
-            <RotateCcw className="w-6 h-6 mr-3" />
-            Reset
-          </Button>
-          
-          <Button
-            variant="ghost"
-            onClick={() => setShowPaytable(!showPaytable)}
-            className="px-8 py-6 text-xl font-bold hover:bg-yellow-500/20"
-          >
-            <Trophy className="w-6 h-6 mr-3" />
-            Paytable
-          </Button>
-        </div>
-
-        {/* Settings */}
-        <div className="flex justify-center space-x-6">
-          <Button
-            variant="ghost"
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className="p-3"
-          >
-            {soundEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-          </Button>
-          
-          <div className="flex items-center space-x-3">
-            <label className="text-lg text-slate-400 font-medium">Speed:</label>
-            <select
-              value={spinSpeed}
-              onChange={(e) => setSpinSpeed(parseInt(e.target.value))}
-              className="px-4 py-2 bg-slate-700 border-2 border-slate-600 rounded-xl text-white text-lg font-bold"
-              disabled={isPlaying}
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-center sm:gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                forceReset();
+                resetSession();
+              }} 
+              className="px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-xs sm:text-sm md:text-base font-bold border-2 border-purple-500 hover:bg-purple-500/20"
             >
-              <option value={150}>Slow</option>
-              <option value={100}>Normal</option>
-              <option value={50}>Fast</option>
-              <option value={25}>Turbo</option>
-            </select>
+              <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 mr-1 sm:mr-2" />
+              Reset
+            </Button>
+            
+            <Button
+              variant="ghost"
+              onClick={() => setShowPaytable(!showPaytable)}
+              className="px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 text-xs sm:text-sm md:text-base font-bold hover:bg-yellow-500/20"
+            >
+              <Trophy className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 mr-1 sm:mr-2" />
+              Paytable
+            </Button>
+
+            <Button
+              variant="ghost"
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              className="px-3 sm:px-4 py-2 sm:py-3"
+            >
+              {soundEnabled ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />}
+            </Button>
+            
+            <div className="flex items-center justify-center space-x-1.5 sm:space-x-2 bg-slate-800/50 rounded-lg px-2 py-1">
+              <label className="text-[10px] sm:text-xs md:text-sm text-slate-400 font-medium">Speed:</label>
+              <select
+                value={spinSpeed}
+                onChange={(e) => setSpinSpeed(parseInt(e.target.value))}
+                className="px-2 sm:px-3 py-1 sm:py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-[10px] sm:text-xs md:text-sm font-bold"
+                disabled={isPlaying}
+              >
+                <option value={150}>Slow</option>
+                <option value={100}>Normal</option>
+                <option value={50}>Fast</option>
+                <option value={25}>Turbo</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Paytable Modal */}
       {showPaytable && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50">
-          <div className="bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl p-8 border-2 border-purple-500 max-w-4xl w-full max-h-[90vh] overflow-auto shadow-2xl">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl md:rounded-2xl p-4 sm:p-6 md:p-8 border-2 border-purple-500 max-w-4xl w-full max-h-[90vh] overflow-auto shadow-2xl">
+            <div className="flex items-center justify-between mb-4 sm:mb-6 md:mb-8">
+              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
                 Paytable & Rules
               </h3>
-              <Button variant="ghost" onClick={() => setShowPaytable(false)} className="text-2xl">
+              <Button variant="ghost" onClick={() => setShowPaytable(false)} className="text-xl sm:text-2xl">
                 ✕
               </Button>
             </div>
             
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4 sm:space-y-5 md:space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
                 {SYMBOLS.map((symbolData, index) => (
-                  <div key={index} className="bg-gradient-to-r from-slate-700 to-slate-800 rounded-xl p-6 border-2 border-slate-600 hover:border-purple-500/50 transition-all duration-300">
+                  <div key={index} className="bg-gradient-to-r from-slate-700 to-slate-800 rounded-lg md:rounded-xl p-3 sm:p-4 md:p-6 border-2 border-slate-600 hover:border-purple-500/50 transition-all duration-300">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <span className="text-5xl">{symbolData.symbol}</span>
+                      <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4">
+                        <span className="text-3xl sm:text-4xl md:text-5xl">{symbolData.symbol}</span>
                         <div>
-                          <p className="text-xl font-bold text-white">{symbolData.name}</p>
-                          <p className="text-sm text-slate-400">Rarity: {(symbolData.rarity * 100).toFixed(1)}%</p>
+                          <p className="text-base sm:text-lg md:text-xl font-bold text-white">{symbolData.name}</p>
+                          <p className="text-xs sm:text-sm text-slate-400">Rarity: {(symbolData.rarity * 100).toFixed(1)}%</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-yellow-400">{symbolData.value}x</p>
-                        <p className="text-sm text-slate-400">3+ symbols</p>
+                        <p className="text-lg sm:text-xl md:text-2xl font-bold text-yellow-400">{symbolData.value}x</p>
+                        <p className="text-xs sm:text-sm text-slate-400">3+ symbols</p>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
               
-              <div className="bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 rounded-2xl p-6 text-center border-4 border-yellow-400">
-                <Crown className="w-16 h-16 text-yellow-200 mx-auto mb-4 animate-pulse" />
-                <p className="text-2xl font-bold text-white mb-2">PROGRESSIVE JACKPOT</p>
-                <p className="text-yellow-200 text-lg">5 Crown symbols (👑) on any active payline</p>
-                <p className="text-3xl font-bold text-white mt-2">WINS ENTIRE JACKPOT!</p>
+              <div className="bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 rounded-xl md:rounded-2xl p-4 sm:p-5 md:p-6 text-center border-2 sm:border-4 border-yellow-400">
+                <Crown className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 text-yellow-200 mx-auto mb-3 sm:mb-4 animate-pulse" />
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-2">PROGRESSIVE JACKPOT</p>
+                <p className="text-yellow-200 text-sm sm:text-base md:text-lg">5 Crown symbols (👑) on any active payline</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-white mt-2">WINS ENTIRE JACKPOT!</p>
               </div>
 
-              <div className="bg-slate-700 rounded-xl p-6 border-2 border-blue-500/30">
-                <h4 className="text-xl font-bold text-blue-400 mb-4">Special Features</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-lg">
+              <div className="bg-slate-700 rounded-lg md:rounded-xl p-4 sm:p-5 md:p-6 border-2 border-blue-500/30">
+                <h4 className="text-lg sm:text-xl font-bold text-blue-400 mb-3 sm:mb-4">Special Features</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 text-sm sm:text-base md:text-lg">
                   <div>
                     <p className="text-white font-bold">⭐ Wild Symbol</p>
-                    <p className="text-slate-300">Substitutes for any symbol</p>
+                    <p className="text-slate-300 text-xs sm:text-sm md:text-base">Substitutes for any symbol</p>
                   </div>
                   <div>
                     <p className="text-white font-bold">💎 Scatter Symbol</p>
-                    <p className="text-slate-300">3+ anywhere pays bonus</p>
+                    <p className="text-slate-300 text-xs sm:text-sm md:text-base">3+ anywhere pays bonus</p>
                   </div>
                   <div>
                     <p className="text-white font-bold">Multiple Paylines</p>
-                    <p className="text-slate-300">Up to 9 ways to win</p>
+                    <p className="text-slate-300 text-xs sm:text-sm md:text-base">Up to 5 ways to win</p>
                   </div>
                   <div>
                     <p className="text-white font-bold">Progressive Jackpot</p>
-                    <p className="text-slate-300">Grows with every spin</p>
+                    <p className="text-slate-300 text-xs sm:text-sm md:text-base">Grows with every spin</p>
                   </div>
                 </div>
               </div>
@@ -867,23 +869,23 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
         </div>
       )}
 
-      {/* Game Statistics */}
-      <div className="relative z-10 grid grid-cols-4 gap-4 text-center">
-        <div className="bg-gradient-to-b from-slate-700 to-slate-800 rounded-xl p-4 border-2 border-slate-600">
-          <p className="text-slate-400 font-medium">Spins</p>
-          <p className="text-2xl font-bold text-white">{session.spinsPlayed}</p>
+      {/* Game Statistics - Optimized for Mobile */}
+      <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 md:gap-3 text-center mt-2 sm:mt-3 md:mt-4">
+        <div className="bg-gradient-to-b from-slate-700 to-slate-800 rounded-md sm:rounded-lg p-1.5 sm:p-2 md:p-3 border border-slate-600">
+          <p className="text-slate-400 font-medium text-[10px] sm:text-xs">Spins</p>
+          <p className="text-sm sm:text-base md:text-xl font-bold text-white">{session.spinsPlayed}</p>
         </div>
-        <div className="bg-gradient-to-b from-slate-700 to-slate-800 rounded-xl p-4 border-2 border-slate-600">
-          <p className="text-slate-400 font-medium">Wagered</p>
-          <p className="text-2xl font-bold text-blue-400">{formatCurrency(session.totalWagered)}</p>
+        <div className="bg-gradient-to-b from-slate-700 to-slate-800 rounded-md sm:rounded-lg p-1.5 sm:p-2 md:p-3 border border-slate-600">
+          <p className="text-slate-400 font-medium text-[10px] sm:text-xs">Wager</p>
+          <p className="text-sm sm:text-base md:text-xl font-bold text-blue-400">{formatCurrency(session.totalWagered)}</p>
         </div>
-        <div className="bg-gradient-to-b from-slate-700 to-slate-800 rounded-xl p-4 border-2 border-slate-600">
-          <p className="text-slate-400 font-medium">Won</p>
-          <p className="text-2xl font-bold text-green-400">{formatCurrency(session.totalWon)}</p>
+        <div className="bg-gradient-to-b from-slate-700 to-slate-800 rounded-md sm:rounded-lg p-1.5 sm:p-2 md:p-3 border border-slate-600">
+          <p className="text-slate-400 font-medium text-[10px] sm:text-xs">Won</p>
+          <p className="text-sm sm:text-base md:text-xl font-bold text-green-400">{formatCurrency(session.totalWon)}</p>
         </div>
-        <div className="bg-gradient-to-b from-slate-700 to-slate-800 rounded-xl p-4 border-2 border-slate-600">
-          <p className="text-slate-400 font-medium">RTP</p>
-          <p className="text-2xl font-bold text-purple-400">
+        <div className="bg-gradient-to-b from-slate-700 to-slate-800 rounded-md sm:rounded-lg p-1.5 sm:p-2 md:p-3 border border-slate-600">
+          <p className="text-slate-400 font-medium text-[10px] sm:text-xs">RTP</p>
+          <p className="text-sm sm:text-base md:text-xl font-bold text-purple-400">
             {session.totalWagered > 0 ? ((session.totalWon / session.totalWagered) * 100).toFixed(1) : '0.0'}%
           </p>
         </div>

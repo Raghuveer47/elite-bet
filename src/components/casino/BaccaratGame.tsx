@@ -18,6 +18,8 @@ interface Card {
   suit: 'hearts' | 'diamonds' | 'clubs' | 'spades';
   rank: string;
   value: number;
+  image?: string;
+  code?: string;
 }
 
 interface BaccaratHand {
@@ -44,6 +46,8 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
   const { processBet, processWin, getAvailableBalance } = useWallet();
   const { session, isPlaying, setIsPlaying, placeBet, addWinnings, markLoss, resetSession } = useCasinoGame(gameId);
   const [deck, setDeck] = useState<Card[]>([]);
+  const [deckId, setDeckId] = useState<string | null>(null);
+  const [cardsRemaining, setCardsRemaining] = useState(52);
   const [playerHand, setPlayerHand] = useState<BaccaratHand | null>(null);
   const [bankerHand, setBankerHand] = useState<BaccaratHand | null>(null);
   const [bets, setBets] = useState<Bet[]>([]);
@@ -82,9 +86,24 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
     return () => clearTimeout(t);
   }, []);
 
+  // Initialize deck from API
   useEffect(() => {
-    setDeck(createDeck());
+    initializeDeck();
   }, []);
+
+  const initializeDeck = async () => {
+    try {
+      const response = await fetch('https://deckofcardsapi.com/api/deck/new/shuffle/?deck_count=1');
+      const data = await response.json();
+      if (data.success) {
+        setDeckId(data.deck_id);
+        setCardsRemaining(data.remaining);
+      }
+    } catch (error) {
+      console.error('Failed to initialize deck:', error);
+      setDeck(createDeck());
+    }
+  };
 
   useEffect(() => {
     if (gameHistory.length > 0) {
@@ -261,33 +280,75 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
         }
       })();
       
-      console.log('[Baccarat] Creating deck and starting animated deal');
-      let currentDeck = createDeck();
+      console.log('[Baccarat] Starting animated card deal from API');
       
-      // Deal initial cards with snappy animation, revealing one by one
-      await new Promise(resolve => setTimeout(resolve, 120));
+      // Deal initial cards one by one with smooth animation from API
+      await new Promise(resolve => setTimeout(resolve, 300));
       
-      const { card: playerCard1, newDeck: deck1 } = dealCard(currentDeck);
-      console.log('[Baccarat] Dealt P1', playerCard1);
-      setPlayerHand(createBaccaratHand([playerCard1]));
-      await new Promise(resolve => setTimeout(resolve, 140));
+      // Player first card
+      setCardAnimation('dealing');
+      setMessage('🃏 Dealing to Player...');
+      const playerCard1 = await drawCardFromAPI();
+      if (playerCard1) {
+        setPlayerHand(createBaccaratHand([playerCard1]));
+        if (soundEnabled) console.log('🔊 Card flip sound...');
+        await new Promise(resolve => setTimeout(resolve, 450));
+        setCardAnimation(null);
+      }
       
-      const { card: bankerCard1, newDeck: deck2 } = dealCard(deck1);
-      console.log('[Baccarat] Dealt B1', bankerCard1);
-      setBankerHand(createBaccaratHand([bankerCard1]));
-      await new Promise(resolve => setTimeout(resolve, 140));
+      // Banker first card
+      setCardAnimation('dealing');
+      setMessage('👑 Dealing to Banker...');
+      const bankerCard1 = await drawCardFromAPI();
+      if (bankerCard1) {
+        setBankerHand(createBaccaratHand([bankerCard1]));
+        if (soundEnabled) console.log('🔊 Card flip sound...');
+        await new Promise(resolve => setTimeout(resolve, 450));
+        setCardAnimation(null);
+      }
       
-      const { card: playerCard2, newDeck: deck3 } = dealCard(deck2);
-      console.log('[Baccarat] Dealt P2', playerCard2);
-      let newPlayerHand = createBaccaratHand([playerCard1, playerCard2]);
-      setPlayerHand(newPlayerHand);
-      await new Promise(resolve => setTimeout(resolve, 140));
+      // Player second card
+      setCardAnimation('dealing');
+      setMessage('🃏 Second card to Player...');
+      const playerCard2 = await drawCardFromAPI();
+      let newPlayerHand = playerCard1 && playerCard2 ? createBaccaratHand([playerCard1, playerCard2]) : null;
+      if (newPlayerHand) {
+        setPlayerHand(newPlayerHand);
+        if (soundEnabled) console.log('🔊 Card flip sound...');
+        await new Promise(resolve => setTimeout(resolve, 450));
+        setCardAnimation(null);
+      }
       
-      const { card: bankerCard2, newDeck: finalDeck } = dealCard(deck3);
-      console.log('[Baccarat] Dealt B2', bankerCard2);
-      let newBankerHand = createBaccaratHand([bankerCard1, bankerCard2]);
-      setBankerHand(newBankerHand);
-      setDeck(finalDeck);
+      // Banker second card
+      setCardAnimation('dealing');
+      setMessage('👑 Second card to Banker...');
+      const bankerCard2 = await drawCardFromAPI();
+      let newBankerHand = bankerCard1 && bankerCard2 ? createBaccaratHand([bankerCard1, bankerCard2]) : null;
+      if (newBankerHand) {
+        setBankerHand(newBankerHand);
+        if (soundEnabled) console.log('🔊 Card flip sound...');
+        await new Promise(resolve => setTimeout(resolve, 350));
+        setCardAnimation(null);
+      }
+      
+      // Fallback if API failed
+      if (!playerCard1 || !playerCard2 || !bankerCard1 || !bankerCard2) {
+        console.log('[Baccarat] API failed, using fallback deck');
+        let fallbackDeck = createDeck();
+        const p1 = fallbackDeck.pop()!;
+        const b1 = fallbackDeck.pop()!;
+        const p2 = fallbackDeck.pop()!;
+        const b2 = fallbackDeck.pop()!;
+        newPlayerHand = createBaccaratHand([p1, p2]);
+        newBankerHand = createBaccaratHand([b1, b2]);
+        setPlayerHand(newPlayerHand);
+        setBankerHand(newBankerHand);
+        setDeck(fallbackDeck);
+      }
+      
+      if (!newPlayerHand || !newBankerHand) {
+        throw new Error('Failed to deal cards');
+      }
       
       setMessage(`Player: ${newPlayerHand.value} | Banker: ${newBankerHand.value}`);
       
@@ -296,37 +357,47 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
         setMessage(`🌟 Natural ${newPlayerHand.value > newBankerHand.value ? 'Player' : newBankerHand.value > newPlayerHand.value ? 'Banker' : 'Tie'}!`);
         setGameStats(prev => ({ ...prev, naturals: prev.naturals + 1 }));
         console.log('[Baccarat] Natural detected → finishing');
-        return finishGame(newPlayerHand, newBankerHand, finalDeck);
+        return finishGame(newPlayerHand, newBankerHand, deck);
       }
       
       // Third card rules
-      let updatedDeck = finalDeck;
+      let currentDeck = deck;
       
       // Player third card rule
-      if (newPlayerHand.value <= 5) {
-        await new Promise(resolve => setTimeout(resolve, 220));
-        setMessage('Player draws third card...');
-        const { card: playerCard3, newDeck: deck4 } = dealCard(updatedDeck);
-        newPlayerHand = createBaccaratHand([...newPlayerHand.cards, playerCard3]);
-        setPlayerHand(newPlayerHand);
-        updatedDeck = deck4;
-        await new Promise(resolve => setTimeout(resolve, 180));
+      if (newPlayerHand && newPlayerHand.value <= 5) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        setCardAnimation('dealing');
+        setMessage('🃏 Player draws third card...');
+        const playerCard3 = await drawCardFromAPI();
+        if (playerCard3) {
+          newPlayerHand = createBaccaratHand([...newPlayerHand.cards, playerCard3]);
+          setPlayerHand(newPlayerHand);
+          if (soundEnabled) console.log('🔊 Card flip sound...');
+          await new Promise(resolve => setTimeout(resolve, 450));
+          setCardAnimation(null);
+        }
       }
       
       // Banker third card rule
-      const shouldBankerDraw = shouldBankerDrawThirdCard(newBankerHand.value, newPlayerHand.cards[2]?.value);
-      if (shouldBankerDraw) {
-        setMessage('Banker draws third card...');
-        const { card: bankerCard3, newDeck: finalDeck2 } = dealCard(updatedDeck);
-        newBankerHand = createBaccaratHand([...newBankerHand.cards, bankerCard3]);
-        setBankerHand(newBankerHand);
-        updatedDeck = finalDeck2;
-        await new Promise(resolve => setTimeout(resolve, 180));
+      const shouldBankerDraw = newPlayerHand && newBankerHand ? shouldBankerDrawThirdCard(newBankerHand.value, newPlayerHand.cards[2]?.value) : false;
+      if (shouldBankerDraw && newBankerHand) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        setCardAnimation('dealing');
+        setMessage('👑 Banker draws third card...');
+        const bankerCard3 = await drawCardFromAPI();
+        if (bankerCard3) {
+          newBankerHand = createBaccaratHand([...newBankerHand.cards, bankerCard3]);
+          setBankerHand(newBankerHand);
+          if (soundEnabled) console.log('🔊 Card flip sound...');
+          await new Promise(resolve => setTimeout(resolve, 450));
+          setCardAnimation(null);
+        }
       }
       
-      setDeck(updatedDeck);
-      console.log('[Baccarat] No natural → finishing');
-      return finishGame(newPlayerHand, newBankerHand, updatedDeck);
+      console.log('[Baccarat] Cards dealt → finishing');
+      if (newPlayerHand && newBankerHand) {
+        return finishGame(newPlayerHand, newBankerHand, currentDeck);
+      }
       
     } catch (error) {
       console.error('Deal error:', error);
@@ -459,23 +530,82 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
     setWinAnimation(false);
   };
 
+  // Draw card from Deck of Cards API
+  const drawCardFromAPI = async (): Promise<Card | null> => {
+    if (!deckId) return null;
+    
+    try {
+      const response = await fetch(`https://deckofcardsapi.com/api/deck/${deckId}/draw/?count=1`);
+      const data = await response.json();
+      
+      if (data.success && data.cards.length > 0) {
+        const apiCard = data.cards[0];
+        setCardsRemaining(data.remaining);
+        
+        // Reshuffle if running low
+        if (data.remaining < 10) {
+          await initializeDeck();
+        }
+        
+        // Convert to Baccarat values (10s and face cards = 0, Ace = 1)
+        const rankValueMap: Record<string, number> = {
+          'ACE': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+          '10': 0, 'JACK': 0, 'QUEEN': 0, 'KING': 0
+        };
+        
+        const suitMap: Record<string, Card['suit']> = {
+          'HEARTS': 'hearts', 'DIAMONDS': 'diamonds', 'CLUBS': 'clubs', 'SPADES': 'spades'
+        };
+        
+        return {
+          suit: suitMap[apiCard.suit] || 'hearts',
+          rank: apiCard.value === 'ACE' ? 'A' : apiCard.value === 'JACK' ? 'J' : apiCard.value === 'QUEEN' ? 'Q' : apiCard.value === 'KING' ? 'K' : apiCard.value,
+          value: rankValueMap[apiCard.value] || 0,
+          image: apiCard.image,
+          code: apiCard.code
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Failed to draw card from API:', error);
+      return null;
+    }
+  };
+
   const renderCard = (card: Card, isDealing = false) => {
+    // Use API card image if available
+    if (card.image) {
+      return (
+        <div className={`w-14 h-21 sm:w-16 sm:h-24 md:w-20 md:h-32 rounded-lg sm:rounded-xl overflow-hidden shadow-xl sm:shadow-2xl border-2 border-white/20 ${
+          isDealing ? 'animate-cardFlip' : 'animate-fadeIn'
+        }`}>
+          <img 
+            src={card.image} 
+            alt={`${card.rank} of ${card.suit}`}
+            className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-200"
+          />
+        </div>
+      );
+    }
+
+    // Fallback to custom rendering
     const suit = CARD_SUITS[card.suit];
     const isRed = card.suit === 'hearts' || card.suit === 'diamonds';
 
     return (
-      <div className={`w-20 h-32 bg-gradient-to-br from-white to-gray-100 rounded-xl border-3 border-gray-300 flex flex-col items-center justify-between p-2 shadow-2xl transform hover:scale-110 transition-all duration-300 ${
+      <div className={`w-14 h-21 sm:w-16 sm:h-24 md:w-20 md:h-32 bg-gradient-to-br from-white to-gray-100 rounded-lg sm:rounded-xl border-2 sm:border-3 border-gray-300 flex flex-col items-center justify-between p-1.5 sm:p-2 shadow-xl sm:shadow-2xl transform active:scale-95 sm:hover:scale-105 md:hover:scale-110 transition-all duration-300 ${
         isDealing ? 'animate-bounce' : ''
       } relative overflow-hidden`}>
-        <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent rounded-xl"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent rounded-lg sm:rounded-xl"></div>
         
-        <div className={`text-sm font-bold ${isRed ? 'text-red-500' : 'text-gray-800'} relative z-10`}>
+        <div className={`text-xs sm:text-sm font-bold ${isRed ? 'text-red-500' : 'text-gray-800'} relative z-10`}>
           {card.rank}
         </div>
-        <div className="text-4xl relative z-10">
+        <div className="text-2xl sm:text-3xl md:text-4xl relative z-10">
           {suit.symbol}
         </div>
-        <div className={`text-sm font-bold transform rotate-180 ${isRed ? 'text-red-500' : 'text-gray-800'} relative z-10`}>
+        <div className={`text-xs sm:text-sm font-bold transform rotate-180 ${isRed ? 'text-red-500' : 'text-gray-800'} relative z-10`}>
           {card.rank}
         </div>
       </div>
@@ -483,27 +613,27 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
   };
 
   const renderHand = (hand: BaccaratHand, title: string, color: string) => (
-    <div className={`bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 rounded-2xl p-6 border-3 border-${color}-500/50 shadow-2xl`}>
-      <div className="flex items-center justify-between mb-6">
-        <h3 className={`text-2xl font-bold text-${color}-400 flex items-center space-x-2`}>
-          <Crown className="w-6 h-6" />
+    <div className={`bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 border-2 sm:border-3 border-${color}-500/50 shadow-xl sm:shadow-2xl`}>
+      <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
+        <h3 className={`text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-${color}-400 flex items-center space-x-1 sm:space-x-2`}>
+          <Crown className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" />
           <span>{title}</span>
         </h3>
         <div className="text-right">
-          <span className={`text-4xl font-bold ${
+          <span className={`text-2xl sm:text-3xl md:text-4xl font-bold ${
             hand.isNatural ? `text-yellow-400 animate-pulse` : `text-${color}-400`
           }`}>
             {hand.value}
           </span>
           {hand.isNatural && (
-            <div className="text-lg text-yellow-400 font-bold animate-bounce">🌟 NATURAL!</div>
+            <div className="text-xs sm:text-sm md:text-base lg:text-lg text-yellow-400 font-bold animate-bounce">🌟 NATURAL!</div>
           )}
         </div>
       </div>
       
-      <div className="flex justify-center space-x-3">
+      <div className="flex justify-center gap-2 sm:gap-3 flex-wrap">
         {hand.cards.map((card, index) => (
-          <div key={index}>
+          <div key={`${color}-card-${index}`}>
             {renderCard(card, cardAnimation === 'dealing')}
           </div>
         ))}
@@ -513,10 +643,10 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
 
   const getBetButtonStyle = (type: Bet['type']) => {
     const hasBet = bets.some(bet => bet.type === type);
-    const baseStyle = "h-24 font-bold text-xl rounded-2xl disabled:opacity-50 transition-all duration-300 transform hover:scale-110 border-3 shadow-2xl relative overflow-hidden";
+    const baseStyle = "h-16 sm:h-20 md:h-24 font-bold text-sm sm:text-base md:text-lg lg:text-xl rounded-lg sm:rounded-xl md:rounded-2xl disabled:opacity-50 transition-all duration-300 transform active:scale-95 sm:hover:scale-105 md:hover:scale-110 border-2 sm:border-3 shadow-xl sm:shadow-2xl relative overflow-hidden";
     
     if (hasBet) {
-      return `${baseStyle} ring-4 ring-yellow-400 ring-opacity-60 scale-105`;
+      return `${baseStyle} ring-2 sm:ring-4 ring-yellow-400 ring-opacity-60 scale-102 sm:scale-105`;
     }
     
     switch (type) {
@@ -538,74 +668,74 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
   const totalBetAmount = bets.reduce((sum, bet) => sum + bet.amount, 0);
 
   return (
-    <div className="bg-gradient-to-b from-slate-800 via-purple-900/20 to-slate-900 rounded-3xl p-8 border-2 border-purple-500/30 relative overflow-hidden shadow-2xl">
+    <div className="bg-gradient-to-b from-slate-800 via-purple-900/20 to-slate-900 rounded-none sm:rounded-2xl lg:rounded-3xl p-2 sm:p-4 md:p-6 lg:p-8 border-0 sm:border-2 border-purple-500/30 relative overflow-hidden shadow-2xl max-w-full sm:max-w-[1100px] mx-auto w-full">
       {/* Animated Background */}
       <div className="absolute inset-0 opacity-15">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute top-1/3 left-1/3 w-36 h-36 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-0 right-0 w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-0 left-0 w-28 h-28 sm:w-32 sm:h-32 md:w-40 md:h-40 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/3 left-1/3 w-24 h-24 sm:w-28 sm:h-28 md:w-36 md:h-36 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full blur-3xl animate-pulse"></div>
       </div>
 
       {/* Win Animation Overlay */}
       {winAnimation && (
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-400/80 via-pink-400/80 to-red-500/80 flex items-center justify-center z-40 rounded-3xl animate-pulse">
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-400/80 via-pink-400/80 to-red-500/80 flex items-center justify-center z-40 rounded-none sm:rounded-2xl lg:rounded-3xl animate-pulse px-4">
           <div className="text-center">
-            <Crown className="w-24 h-24 text-yellow-200 mx-auto mb-4 animate-bounce" />
-            <h2 className="text-6xl font-bold text-white mb-4 animate-bounce">WINNER!</h2>
-            <p className="text-3xl font-bold text-yellow-200">👑 Baccarat Victory! 👑</p>
+            <Crown className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 text-yellow-200 mx-auto mb-2 sm:mb-3 md:mb-4 animate-bounce" />
+            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-2 sm:mb-3 md:mb-4 animate-bounce">WINNER!</h2>
+            <p className="text-xl sm:text-2xl md:text-3xl font-bold text-yellow-200">👑 Baccarat Victory! 👑</p>
           </div>
         </div>
       )}
 
       {/* Game Header */}
-      <div className="relative z-10 text-center mb-8">
-        <div className="flex items-center justify-center space-x-4 mb-6">
-          <Crown className="w-10 h-10 text-purple-400 animate-pulse" />
-          <h2 className="text-5xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent">
+      <div className="relative z-10 text-center mb-3 sm:mb-4 md:mb-6 lg:mb-8">
+        <div className="flex items-center justify-center space-x-2 sm:space-x-3 md:space-x-4 mb-3 sm:mb-4 md:mb-6">
+          <Crown className="w-5 h-5 sm:w-7 sm:h-7 md:w-10 md:h-10 text-purple-400 animate-pulse" />
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 bg-clip-text text-transparent">
             {gameName}
           </h2>
-          <Crown className="w-10 h-10 text-purple-400 animate-pulse" />
+          <Crown className="w-5 h-5 sm:w-7 sm:h-7 md:w-10 md:h-10 text-purple-400 animate-pulse" />
         </div>
         
-        <div className="flex justify-center space-x-12 text-lg">
-          <div className="text-center">
-            <p className="text-slate-400 font-medium">Balance</p>
-            <p className="text-2xl font-bold text-green-400">{formatCurrency(session.balance)}</p>
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 md:flex md:justify-center md:space-x-8 lg:space-x-12 text-sm sm:text-base md:text-lg">
+          <div className="text-center bg-slate-800/50 rounded-lg p-2 sm:bg-transparent sm:p-0">
+            <p className="text-slate-400 font-medium text-xs sm:text-sm">Balance</p>
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-green-400">{formatCurrency(session.balance)}</p>
           </div>
-          <div className="text-center">
-            <p className="text-slate-400 font-medium">Total Bets</p>
-            <p className="text-2xl font-bold text-blue-400">{formatCurrency(totalBetAmount)}</p>
+          <div className="text-center bg-slate-800/50 rounded-lg p-2 sm:bg-transparent sm:p-0">
+            <p className="text-slate-400 font-medium text-xs sm:text-sm">Total Bets</p>
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-blue-400">{formatCurrency(totalBetAmount)}</p>
           </div>
-          <div className="text-center">
-            <p className="text-slate-400 font-medium">Hands Played</p>
-            <p className="text-2xl font-bold text-purple-400">{gameStats.handsPlayed}</p>
+          <div className="text-center bg-slate-800/50 rounded-lg p-2 sm:bg-transparent sm:p-0">
+            <p className="text-slate-400 font-medium text-xs sm:text-sm">Hands Played</p>
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-purple-400">{gameStats.handsPlayed}</p>
           </div>
         </div>
       </div>
 
       {/* Game Message */}
-      <div className="relative z-10 text-center mb-8">
-        <div className="bg-gradient-to-r from-slate-800 via-purple-800/30 to-slate-800 rounded-2xl p-6 border-2 border-purple-500/30 shadow-xl">
-          <p className="text-2xl font-bold text-yellow-400">{message}</p>
+      <div className="relative z-10 text-center mb-3 sm:mb-4 md:mb-6 lg:mb-8">
+        <div className="bg-gradient-to-r from-slate-800 via-purple-800/30 to-slate-800 rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 border border-purple-500/30 shadow-xl">
+          <p className="text-sm sm:text-base md:text-lg lg:text-2xl font-bold text-yellow-400">{message}</p>
         </div>
       </div>
 
       {/* Trends Display */}
-      <div className="relative z-10 mb-8">
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-6 border-2 border-slate-700 shadow-xl">
-          <h4 className="text-xl font-bold text-center text-white mb-4">Recent Trends (Last 10 Hands)</h4>
-          <div className="grid grid-cols-3 gap-6 text-center">
-            <div className="bg-blue-600/20 rounded-xl p-4 border border-blue-500/30">
-              <p className="text-blue-400 font-bold text-lg">Player</p>
-              <p className="text-2xl font-bold text-white">{trends.player}</p>
+      <div className="relative z-10 mb-3 sm:mb-4 md:mb-6 lg:mb-8">
+        <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 border border-slate-700 shadow-xl">
+          <h4 className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-center text-white mb-2 sm:mb-3 md:mb-4">Recent Trends (Last 10 Hands)</h4>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4 lg:gap-6 text-center">
+            <div className="bg-blue-600/20 rounded-lg sm:rounded-xl p-2 sm:p-3 md:p-4 border border-blue-500/30">
+              <p className="text-blue-400 font-bold text-xs sm:text-sm md:text-base lg:text-lg">Player</p>
+              <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white">{trends.player}</p>
             </div>
-            <div className="bg-red-600/20 rounded-xl p-4 border border-red-500/30">
-              <p className="text-red-400 font-bold text-lg">Banker</p>
-              <p className="text-2xl font-bold text-white">{trends.banker}</p>
+            <div className="bg-red-600/20 rounded-lg sm:rounded-xl p-2 sm:p-3 md:p-4 border border-red-500/30">
+              <p className="text-red-400 font-bold text-xs sm:text-sm md:text-base lg:text-lg">Banker</p>
+              <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white">{trends.banker}</p>
             </div>
-            <div className="bg-green-600/20 rounded-xl p-4 border border-green-500/30">
-              <p className="text-green-400 font-bold text-lg">Tie</p>
-              <p className="text-2xl font-bold text-white">{trends.tie}</p>
+            <div className="bg-green-600/20 rounded-lg sm:rounded-xl p-2 sm:p-3 md:p-4 border border-green-500/30">
+              <p className="text-green-400 font-bold text-xs sm:text-sm md:text-base lg:text-lg">Tie</p>
+              <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white">{trends.tie}</p>
             </div>
           </div>
         </div>
@@ -613,8 +743,8 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
 
       {/* Game Table */}
       {(playerHand || bankerHand) && (
-        <div className="relative z-10 bg-gradient-to-br from-green-800 via-green-900 to-black rounded-3xl p-8 mb-8 border-4 border-green-600 shadow-2xl">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="relative z-10 bg-gradient-to-br from-green-800 via-green-900 to-black rounded-xl sm:rounded-2xl lg:rounded-3xl p-3 sm:p-4 md:p-6 lg:p-8 mb-3 sm:mb-4 md:mb-6 lg:mb-8 border-2 sm:border-3 md:border-4 border-green-600 shadow-xl sm:shadow-2xl min-h-[300px] sm:min-h-[350px]">
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 md:gap-8">
             {/* Player Hand */}
             {playerHand && renderHand(playerHand, 'Player', 'blue')}
             
@@ -626,22 +756,22 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
 
       {/* Betting Area */}
       {gamePhase === 'betting' && (
-        <div className="relative z-10 mb-8">
-          <div className="bg-gradient-to-br from-green-800 via-green-900 to-black rounded-3xl p-8 border-4 border-green-600 shadow-2xl">
-            <h4 className="text-2xl font-bold text-center text-green-400 mb-8">Place Your Bets</h4>
+        <div className="relative z-10 mb-3 sm:mb-4 md:mb-6 lg:mb-8">
+          <div className="bg-gradient-to-br from-green-800 via-green-900 to-black rounded-xl sm:rounded-2xl lg:rounded-3xl p-3 sm:p-4 md:p-6 lg:p-8 border-2 sm:border-3 md:border-4 border-green-600 shadow-xl sm:shadow-2xl">
+            <h4 className="text-lg sm:text-xl md:text-2xl font-bold text-center text-green-400 mb-3 sm:mb-4 md:mb-6 lg:mb-8">Place Your Bets</h4>
             
             {/* Main Bets */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-3 sm:mb-4 md:mb-6 lg:mb-8">
               <button
                 onClick={() => placeBetOnOption('player', 2)}
                 disabled={isPlaying}
                 className={getBetButtonStyle('player')}
               >
                 <div className="relative z-10">
-                  <div className="text-2xl font-bold">PLAYER</div>
-                  <div className="text-lg opacity-90">Pays 2:1</div>
+                  <div className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold">PLAYER</div>
+                  <div className="text-xs sm:text-sm md:text-base lg:text-lg opacity-90">Pays 2:1</div>
                   {bets.find(b => b.type === 'player') && (
-                    <div className="text-sm text-yellow-300 font-bold">
+                    <div className="text-[10px] sm:text-xs md:text-sm text-yellow-300 font-bold">
                       {formatCurrency(bets.find(b => b.type === 'player')!.amount)}
                     </div>
                   )}
@@ -654,10 +784,10 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
                 className={getBetButtonStyle('tie')}
               >
                 <div className="relative z-10">
-                  <div className="text-2xl font-bold">TIE</div>
-                  <div className="text-lg opacity-90">Pays 9:1</div>
+                  <div className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold">TIE</div>
+                  <div className="text-xs sm:text-sm md:text-base lg:text-lg opacity-90">Pays 9:1</div>
                   {bets.find(b => b.type === 'tie') && (
-                    <div className="text-sm text-yellow-300 font-bold">
+                    <div className="text-[10px] sm:text-xs md:text-sm text-yellow-300 font-bold">
                       {formatCurrency(bets.find(b => b.type === 'tie')!.amount)}
                     </div>
                   )}
@@ -670,10 +800,10 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
                 className={getBetButtonStyle('banker')}
               >
                 <div className="relative z-10">
-                  <div className="text-2xl font-bold">BANKER</div>
-                  <div className="text-lg opacity-90">Pays 1.95:1</div>
+                  <div className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold">BANKER</div>
+                  <div className="text-xs sm:text-sm md:text-base lg:text-lg opacity-90">Pays 1.95:1</div>
                   {bets.find(b => b.type === 'banker') && (
-                    <div className="text-sm text-yellow-300 font-bold">
+                    <div className="text-[10px] sm:text-xs md:text-sm text-yellow-300 font-bold">
                       {formatCurrency(bets.find(b => b.type === 'banker')!.amount)}
                     </div>
                   )}
@@ -682,17 +812,17 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
             </div>
 
             {/* Side Bets */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6">
               <button
                 onClick={() => placeBetOnOption('player_pair', 12)}
                 disabled={isPlaying}
                 className={getBetButtonStyle('player_pair')}
               >
                 <div className="relative z-10">
-                  <div className="text-xl font-bold">PLAYER PAIR</div>
-                  <div className="text-lg opacity-90">Pays 12:1</div>
+                  <div className="text-sm sm:text-base md:text-lg lg:text-xl font-bold">PLAYER PAIR</div>
+                  <div className="text-xs sm:text-sm md:text-base lg:text-lg opacity-90">Pays 12:1</div>
                   {bets.find(b => b.type === 'player_pair') && (
-                    <div className="text-sm text-yellow-300 font-bold">
+                    <div className="text-[10px] sm:text-xs md:text-sm text-yellow-300 font-bold">
                       {formatCurrency(bets.find(b => b.type === 'player_pair')!.amount)}
                     </div>
                   )}
@@ -705,10 +835,10 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
                 className={getBetButtonStyle('banker_pair')}
               >
                 <div className="relative z-10">
-                  <div className="text-xl font-bold">BANKER PAIR</div>
-                  <div className="text-lg opacity-90">Pays 12:1</div>
+                  <div className="text-sm sm:text-base md:text-lg lg:text-xl font-bold">BANKER PAIR</div>
+                  <div className="text-xs sm:text-sm md:text-base lg:text-lg opacity-90">Pays 12:1</div>
                   {bets.find(b => b.type === 'banker_pair') && (
-                    <div className="text-sm text-yellow-300 font-bold">
+                    <div className="text-[10px] sm:text-xs md:text-sm text-yellow-300 font-bold">
                       {formatCurrency(bets.find(b => b.type === 'banker_pair')!.amount)}
                     </div>
                   )}

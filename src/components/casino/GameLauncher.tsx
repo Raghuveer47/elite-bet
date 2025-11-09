@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Play, Star, Info, Volume2, VolumeX, Settings, Trophy, Maximize2 } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, Star, Info, Volume2, VolumeX, Maximize2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { formatCurrency } from '../../lib/utils';
 import { SlotMachine } from './SlotMachine';
@@ -35,7 +35,7 @@ export function GameLauncher({ game, onClose }: GameLauncherProps) {
       return <SlotMachine gameId={game.id} gameName={game.name} />;
     }
     if (game.id === 'premium-roulette') {
-      return <Roulette />;
+      return <Roulette gameId={game.id} gameName={game.name} />;
     }
     if (game.id === 'mines') {
       return <Mines gameId={game.id} gameName={game.name} />;
@@ -62,39 +62,39 @@ export function GameLauncher({ game, onClose }: GameLauncherProps) {
   };
 
   return (
-    <div className={`fixed inset-0 bg-black/95 z-50 flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-4'}`}>
-      <div className={`bg-slate-900 ${isFullscreen ? 'w-full h-full' : 'rounded-2xl max-w-7xl w-full max-h-[95vh]'} overflow-y-auto`}>
+    <div className={`fixed inset-0 bg-black/95 z-50 flex items-center justify-center ${isFullscreen ? 'p-0' : 'p-0 sm:p-4'}`}>
+      <div className={`bg-slate-900 ${isFullscreen ? 'w-full h-full' : 'rounded-none sm:rounded-2xl max-w-7xl w-full max-h-[95vh] sm:max-h-[95vh] h-full sm:h-auto'} overflow-y-auto`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-700 bg-slate-800/50 backdrop-blur-sm">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={onClose}>
-              <ArrowLeft className="w-5 h-5" />
+        <div className="flex items-center justify-between p-2 sm:p-3 md:p-4 lg:p-6 border-b border-slate-700 bg-slate-800/50 backdrop-blur-sm">
+          <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4">
+            <Button variant="ghost" onClick={onClose} className="p-1 sm:p-2">
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
+              <h1 className="text-base sm:text-xl md:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
                 {game.name}
               </h1>
-              <p className="text-slate-400 flex items-center space-x-2">
-                <span>{game.provider}</span>
-                <span>•</span>
+              <p className="text-xs sm:text-sm text-slate-400 flex items-center space-x-1 sm:space-x-2">
+                <span className="hidden sm:inline">{game.provider}</span>
+                <span className="hidden sm:inline">•</span>
                 <span className="text-green-400">RTP: {game.rtp}%</span>
               </p>
             </div>
-            {game.featured && <Star className="w-6 h-6 text-yellow-400 fill-current" />}
+            {game.featured && <Star className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-yellow-400 fill-current hidden sm:block" />}
           </div>
           
-          <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="sm" onClick={() => setSoundEnabled(!soundEnabled)}>
-              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          <div className="flex items-center space-x-1 sm:space-x-2">
+            <Button variant="ghost" size="sm" onClick={() => setSoundEnabled(!soundEnabled)} className="p-1 sm:p-2 hidden sm:flex">
+              {soundEnabled ? <Volume2 className="w-3 h-3 sm:w-4 sm:h-4" /> : <VolumeX className="w-3 h-3 sm:w-4 sm:h-4" />}
             </Button>
             
-            <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
-              <Maximize2 className="w-4 h-4" />
+            <Button variant="ghost" size="sm" onClick={toggleFullscreen} className="p-1 sm:p-2 hidden sm:flex">
+              <Maximize2 className="w-3 h-3 sm:w-4 sm:h-4" />
             </Button>
             
-            <Button variant="outline" onClick={() => setShowInfo(!showInfo)}>
-              <Info className="w-4 h-4 mr-2" />
-              Info
+            <Button variant="outline" onClick={() => setShowInfo(!showInfo)} className="text-xs sm:text-sm px-2 py-1 sm:px-3 sm:py-2">
+              <Info className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Info</span>
             </Button>
           </div>
         </div>
@@ -202,7 +202,7 @@ export function GameLauncher({ game, onClose }: GameLauncherProps) {
         )}
 
         {/* Game Content */}
-        <div className={`${isFullscreen ? 'p-8' : 'p-6'}`}>
+        <div className={`${isFullscreen ? 'p-4 sm:p-8' : 'p-0 sm:p-4 md:p-6'}`}>
           {renderGame()}
         </div>
       </div>

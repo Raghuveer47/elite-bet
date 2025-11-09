@@ -49,16 +49,22 @@ export function AdminDashboard() {
     // Load real recent activity from transactions and user actions
     const activity = transactions.slice(0, 10).map(transaction => {
       const user = users.find(u => u.id === transaction.userId);
+      const userName = user ? `${user.firstName} ${user.lastName}`.trim() : null;
+      
       return {
         id: transaction.id,
         type: transaction.type,
-        user: user ? `${user.firstName} ${user.lastName}` : 'Unknown User',
+        user: userName || 'Unknown User',
         amount: transaction.amount,
         description: transaction.description,
         timestamp: transaction.createdAt,
         status: transaction.status
       };
     });
+    
+    console.log('AdminDashboard: Recent Activity - Users loaded:', users.length, 'Transactions:', transactions.length);
+    console.log('AdminDashboard: Sample user lookup - First transaction userId:', transactions[0]?.userId, 'Found user:', users.find(u => u.id === transactions[0]?.userId));
+    
     setRecentActivity(activity);
 
     // Update real-time metrics every 3 seconds

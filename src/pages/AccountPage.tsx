@@ -158,34 +158,36 @@ export function AccountPage() {
     switch (activeTab) {
       case 'profile':
         return (
-          <div className="space-y-6">
+          <div className="space-y-3 sm:space-y-4 md:space-y-6">
             {/* Profile Picture Section */}
-            <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-              <h3 className="text-xl font-semibold mb-6">Profile Picture</h3>
-              <div className="flex items-center space-x-6">
-                <div className="w-24 h-24 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-2xl">
+            <div className="bg-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-slate-700">
+              <h3 className="text-base sm:text-lg md:text-xl font-semibold mb-3 sm:mb-4 md:mb-6">Profile Picture</h3>
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-4 md:gap-6">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-xl sm:text-2xl">
                     {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
                   </span>
                 </div>
-                <div>
-                  <Button variant="outline" size="sm" disabled>
-                    <Camera className="w-4 h-4 mr-2" />
+                <div className="text-center sm:text-left">
+                  <Button variant="outline" size="sm" disabled className="text-xs sm:text-sm">
+                    <Camera className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                     Upload Photo
                   </Button>
-                  <p className="text-xs text-slate-400 mt-2">JPG, PNG up to 2MB</p>
+                  <p className="text-[10px] sm:text-xs text-slate-400 mt-2">JPG, PNG up to 2MB</p>
                 </div>
               </div>
             </div>
 
             {/* Personal Information */}
-            <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold">Personal Information</h3>
+            <div className="bg-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-slate-700">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 mb-3 sm:mb-4 md:mb-6">
+                <h3 className="text-base sm:text-lg md:text-xl font-semibold">Personal Information</h3>
                 <Button
                   variant="outline"
                   onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
                   disabled={isLoading}
+                  size="sm"
+                  className="text-xs sm:text-sm w-full sm:w-auto"
                 >
                   {isLoading ? (
                     <LoadingSpinner size="sm" />
@@ -197,7 +199,7 @@ export function AccountPage() {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <Input
                   label="First Name"
                   value={profileData.firstName}
@@ -244,11 +246,11 @@ export function AccountPage() {
               </div>
 
               {isEditing && (
-                <div className="mt-6 flex space-x-3">
-                  <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isLoading}>
+                <div className="mt-3 sm:mt-4 md:mt-6 flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isLoading} className="w-full sm:w-auto text-xs sm:text-sm">
                     Cancel
                   </Button>
-                  <Button onClick={handleSaveProfile} disabled={isLoading}>
+                  <Button onClick={handleSaveProfile} disabled={isLoading} className="w-full sm:w-auto text-xs sm:text-sm">
                     Save Changes
                   </Button>
                 </div>
@@ -256,51 +258,51 @@ export function AccountPage() {
             </div>
 
             {/* Account Status */}
-            <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-              <h3 className="text-xl font-semibold mb-4">Account Status</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
+            <div className="bg-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-slate-700">
+              <h3 className="text-base sm:text-lg md:text-xl font-semibold mb-3 sm:mb-4">Account Status</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 md:gap-6">
+                <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Account Status:</span>
-                    <span className="text-green-400 font-medium">Active</span>
+                    <span className="text-slate-400 text-xs sm:text-sm">Account Status:</span>
+                    <span className="text-green-400 font-medium text-xs sm:text-sm">Active</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Verification Status:</span>
+                    <span className="text-slate-400 text-xs sm:text-sm">Verification Status:</span>
                     <div className="flex items-center space-x-2">
                       {user?.isVerified ? (
                         <>
-                          <CheckCircle className="w-4 h-4 text-green-400" />
-                          <span className="text-green-400 font-medium">Verified</span>
+                          <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
+                          <span className="text-green-400 font-medium text-xs sm:text-sm">Verified</span>
                         </>
                       ) : (
                         <>
-                          <AlertTriangle className="w-4 h-4 text-yellow-400" />
-                          <span className="text-yellow-400 font-medium">Pending</span>
+                          <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" />
+                          <span className="text-yellow-400 font-medium text-xs sm:text-sm">Pending</span>
                         </>
                       )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Member Since:</span>
-                    <span className="text-white font-medium">
+                    <span className="text-slate-400 text-xs sm:text-sm">Member Since:</span>
+                    <span className="text-white font-medium text-xs sm:text-sm">
                       {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
                     </span>
                   </div>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Account Balance:</span>
-                    <span className="text-green-400 font-bold text-lg">
-                      ${(user?.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    <span className="text-slate-400 text-xs sm:text-sm">Account Balance:</span>
+                    <span className="text-green-400 font-bold text-sm sm:text-base md:text-lg">
+                      ₹{(user?.balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Currency:</span>
-                    <span className="text-white font-medium">{user?.currency || 'USD'}</span>
+                    <span className="text-slate-400 text-xs sm:text-sm">Currency:</span>
+                    <span className="text-white font-medium text-xs sm:text-sm">{user?.currency || 'INR'}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Last Login:</span>
-                    <span className="text-white font-medium">
+                    <span className="text-slate-400 text-xs sm:text-sm">Last Login:</span>
+                    <span className="text-white font-medium text-xs sm:text-sm">
                       {user?.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Unknown'}
                     </span>
                   </div>
@@ -575,44 +577,44 @@ export function AccountPage() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Account Settings</h1>
-          <p className="text-slate-400">Manage your account, security, and preferences</p>
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2">Account Settings</h1>
+          <p className="text-slate-400 text-xs sm:text-sm md:text-base">Manage your account, security, and preferences</p>
           
           {/* Account Overview */}
-          <div className="mt-6 bg-gradient-to-r from-blue-600/20 to-green-600/20 rounded-xl p-6 border border-blue-500/30">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">
+          <div className="mt-3 sm:mt-4 md:mt-6 bg-gradient-to-r from-blue-600/20 to-green-600/20 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-blue-500/30">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+              <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-bold text-base sm:text-lg md:text-xl">
                     {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
                   </span>
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base sm:text-lg md:text-xl font-bold text-white truncate">
                     {user?.firstName} {user?.lastName}
                   </h2>
-                  <p className="text-slate-300">{user?.email}</p>
+                  <p className="text-slate-300 text-xs sm:text-sm md:text-base truncate">{user?.email}</p>
                   <div className="flex items-center space-x-2 mt-1">
                     {user?.isVerified ? (
                       <>
-                        <CheckCircle className="w-4 h-4 text-green-400" />
-                        <span className="text-green-400 text-sm font-medium">Verified Account</span>
+                        <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
+                        <span className="text-green-400 text-[10px] sm:text-xs md:text-sm font-medium">Verified Account</span>
                       </>
                     ) : (
                       <>
-                        <AlertTriangle className="w-4 h-4 text-yellow-400" />
-                        <span className="text-yellow-400 text-sm font-medium">Verification Pending</span>
+                        <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400" />
+                        <span className="text-yellow-400 text-[10px] sm:text-xs md:text-sm font-medium">Verification Pending</span>
                       </>
                     )}
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-slate-400 text-sm">Account Balance</p>
-                <p className="text-2xl font-bold text-green-400">
+              <div className="text-left sm:text-right bg-slate-800/50 sm:bg-transparent rounded-lg p-3 sm:p-0">
+                <p className="text-slate-400 text-xs sm:text-sm">Account Balance</p>
+                <p className="text-lg sm:text-xl md:text-2xl font-bold text-green-400">
                   {formatCurrency(user?.balance || 0, 'INR')}
                 </p>
               </div>
@@ -621,24 +623,24 @@ export function AccountPage() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-8">
-          <div className="flex flex-wrap gap-2 bg-slate-800 rounded-lg p-1">
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <div className="flex flex-wrap gap-1 sm:gap-2 bg-slate-800 rounded-lg p-1">
             {tabs.map(tab => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                  className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-md text-[10px] sm:text-xs md:text-sm font-medium transition-all duration-200 ${
                     activeTab === tab.id
                       ? 'bg-blue-600 text-white shadow-lg'
                       : 'text-slate-400 hover:text-white hover:bg-slate-700'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.name}</span>
+                  <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden xs:inline sm:inline">{tab.name}</span>
                   {tab.id === 'verification' && !user?.isVerified && (
-                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                    <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-400 rounded-full animate-pulse"></div>
                   )}
                 </button>
               );
@@ -647,49 +649,55 @@ export function AccountPage() {
         </div>
 
         {/* Referral Section */}
-        <div className="mb-8 bg-slate-800/60 rounded-xl p-6 border border-slate-700">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Gem className="w-6 h-6 text-emerald-400" />
-              <h2 className="text-xl font-bold">Referral Program</h2>
+        <div className="mb-4 sm:mb-6 md:mb-8 bg-slate-800/60 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-slate-700">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-3 sm:mb-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Gem className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
+              <h2 className="text-base sm:text-lg md:text-xl font-bold">Referral Program</h2>
             </div>
             {user?.referralCode && (
-              <span className="text-sm text-slate-400">Share and earn ₹250 per friend</span>
+              <span className="text-xs sm:text-sm text-slate-400">Share and earn ₹250 per friend</span>
             )}
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
             <div>
-              <p className="text-slate-400 text-sm mb-2">Your Referral Code</p>
+              <p className="text-slate-400 text-xs sm:text-sm mb-2">Your Referral Code</p>
               <div className="flex items-center gap-2">
-                <Input readOnly value={user?.referralCode || '—'} className="font-mono" />
+                <Input readOnly value={user?.referralCode || '—'} className="font-mono text-xs sm:text-sm" />
                 <Button
                   variant="outline"
                   onClick={() => navigator.clipboard.writeText(user?.referralCode || '')}
                   disabled={!user?.referralCode}
+                  size="sm"
+                  className="text-xs sm:text-sm px-2 sm:px-3"
                 >
-                  <Copy className="w-4 h-4 mr-1" /> Copy
+                  <Copy className="w-3 h-3 sm:w-4 sm:h-4 mr-1" /> 
+                  <span className="hidden sm:inline">Copy</span>
                 </Button>
               </div>
             </div>
             <div>
-              <p className="text-slate-400 text-sm mb-2">Referral Link</p>
+              <p className="text-slate-400 text-xs sm:text-sm mb-2">Referral Link</p>
               <div className="flex items-center gap-2">
                 <Input
                   readOnly
                   value={user?.referralCode ? `${window.location.origin}/register?ref=${user.referralCode}` : '—'}
-                  className="font-mono"
+                  className="font-mono text-xs sm:text-sm"
                 />
                 <Button
                   variant="outline"
                   onClick={() => user?.referralCode && navigator.clipboard.writeText(`${window.location.origin}/register?ref=${user.referralCode}`)}
                   disabled={!user?.referralCode}
+                  size="sm"
+                  className="text-xs sm:text-sm px-2 sm:px-3"
                 >
-                  <LinkIcon className="w-4 h-4 mr-1" /> Copy Link
+                  <LinkIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1" /> 
+                  <span className="hidden md:inline">Copy Link</span>
                 </Button>
               </div>
             </div>
           </div>
-          <p className="text-slate-400 text-xs mt-3">Friends receive ₹100 on signup. You earn ₹250 when they join.</p>
+          <p className="text-slate-400 text-[10px] sm:text-xs mt-2 sm:mt-3">Friends receive ₹100 on signup. You earn ₹250 when they join.</p>
         </div>
 
         {/* Tab Content */}

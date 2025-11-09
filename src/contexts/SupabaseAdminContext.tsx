@@ -285,26 +285,29 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         if (usersResponse.ok) {
           const usersData = await usersResponse.json();
           if (usersData.success && usersData.users && usersData.users.length > 0) {
+            console.log('AdminContext: Sample user data from backend:', usersData.users[0]);
+            
             loadedUsers = usersData.users.map((user: any) => ({
               id: user.id,
               email: user.email || '',
-              firstName: user.firstName || '',
-              lastName: user.lastName || '',
+              firstName: user.firstName || user.first_name || 'User',
+              lastName: user.lastName || user.last_name || '',
               balance: user.balance || 0,
               status: (user.status || 'active') as 'active' | 'suspended' | 'closed',
-              isVerified: user.isVerified || true,
-              registrationDate: new Date(user.createdAt),
-              lastLogin: new Date(user.lastLogin || user.createdAt),
-              totalDeposited: user.totalDeposited || 0,
-              totalWithdrawn: user.totalWithdrawn || 0,
-              totalWagered: user.totalWagered || 0,
+              isVerified: user.isVerified || user.is_verified || true,
+              registrationDate: new Date(user.createdAt || user.created_at || Date.now()),
+              lastLogin: new Date(user.lastLogin || user.last_login || user.createdAt || user.created_at || Date.now()),
+              totalDeposited: user.totalDeposited || user.total_deposited || 0,
+              totalWithdrawn: user.totalWithdrawn || user.total_withdrawn || 0,
+              totalWagered: user.totalWagered || user.total_wagered || 0,
               activeBets: 0,
               country: user.country || 'Unknown',
-              riskLevel: (user.riskLevel || 'low') as 'low' | 'medium' | 'high'
+              riskLevel: (user.riskLevel || user.risk_level || 'low') as 'low' | 'medium' | 'high'
             }));
             
             setUsers(loadedUsers);
             console.log('AdminContext: Loaded', loadedUsers.length, 'users from MongoDB with balances');
+            console.log('AdminContext: Sample loaded user:', loadedUsers[0]);
             console.log('Total platform balance:', loadedUsers.reduce((sum, u) => sum + u.balance, 0));
           }
         }

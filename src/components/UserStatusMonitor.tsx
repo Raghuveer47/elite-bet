@@ -21,14 +21,22 @@ export function UserStatusMonitor() {
         const response = await fetch(`${backendUrl}/api/betting/balance/${user.id}`);
         
         if (!response.ok) {
-          console.log('Status check failed (non-critical)');
+          console.log('UserStatusMonitor: Status check failed (non-critical), response not OK');
           return;
         }
 
         const data = await response.json();
         
+        console.log('UserStatusMonitor: Status check for', user.email, '- Status:', data.userStatus);
+        
         if (data.success && data.userStatus) {
           const currentStatus = data.userStatus;
+
+          // Only proceed if status is actually bad (not if it's active)
+          if (currentStatus === 'active') {
+            console.log('UserStatusMonitor: User status is active - all good');
+            return;
+          }
 
           // Account suspended while user is active
           if (currentStatus === 'suspended' && !hasShownSuspendedToast) {
@@ -118,15 +126,18 @@ export function UserStatusMonitor() {
       }
     };
 
-    // Check immediately on mount
-    checkUserStatus();
+    // Wait 5 seconds before first check (allow login to complete)
+    const initialCheckTimeout = setTimeout(() => {
+      checkUserStatus();
+    }, 5000);
 
     // Then check every 30 seconds
     const statusCheckInterval = setInterval(checkUserStatus, 30000);
 
-    console.log('✅ UserStatusMonitor: Started monitoring for user:', user.email);
+    console.log('✅ UserStatusMonitor: Started monitoring for user:', user.email, '(first check in 5 seconds)');
 
     return () => {
+      clearTimeout(initialCheckTimeout);
       clearInterval(statusCheckInterval);
       console.log('UserStatusMonitor: Stopped monitoring');
     };

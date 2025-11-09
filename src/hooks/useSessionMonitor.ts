@@ -17,12 +17,16 @@ export function useSessionMonitor() {
           try {
             const token = localStorage.getItem('elitebet_backend_token');
             if (!token) {
+              console.log('useSessionMonitor: No backend token found, logging out');
               userLogout();
               toast.error('Your session has expired. Please login again.');
               return;
             }
+            console.log('useSessionMonitor: Verifying backend token...');
             await BackendAuthService.me(token);
+            console.log('useSessionMonitor: Backend token valid');
           } catch (error) {
+            console.error('useSessionMonitor: Backend token validation failed:', error);
             userLogout();
             toast.error('Your session has expired. Please login again.');
             return;
@@ -69,10 +73,13 @@ export function useSessionMonitor() {
     // Check sessions every minute
     const interval = setInterval(checkSessions, 60 * 1000);
 
-    // Check immediately
-    checkSessions();
+    // Wait 10 seconds before first check (allow login to complete fully)
+    const initialCheck = setTimeout(checkSessions, 10000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(initialCheck);
+    };
   }, [isAuthenticated, userLogout]);
 
   // Handle browser tab visibility changes

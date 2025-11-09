@@ -198,62 +198,62 @@ function DashboardContent() {
       
       <div className="container mx-auto px-4 py-8">
         {/* Enhanced Welcome Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
             <div>
-              <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-400 via-purple-500 to-green-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1 sm:mb-2 bg-gradient-to-r from-blue-400 via-purple-500 to-green-400 bg-clip-text text-transparent">
                 Welcome back, {user.firstName}!
               </h1>
-              <p className="text-slate-400 text-lg">Here's your comprehensive betting overview</p>
+              <p className="text-slate-400 text-sm sm:text-base md:text-lg">Here's your comprehensive betting overview</p>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <select
                 value={selectedPeriod}
                 onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                className="flex-1 sm:flex-none px-2 sm:px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-xs sm:text-sm"
               >
                 <option value="today">Today</option>
                 <option value="week">This Week</option>
                 <option value="month">This Month</option>
                 <option value="all">All Time</option>
               </select>
-              <Button variant="outline" size="sm" onClick={refreshWallet}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh
+              <Button variant="outline" size="sm" onClick={refreshWallet} className="text-xs sm:text-sm px-2 sm:px-3">
+                <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden xs:inline">Refresh</span>
               </Button>
             </div>
           </div>
 
           {/* Account Status Banner */}
-          <div className={`rounded-xl p-6 border-2 mb-6 ${
+          <div className={`rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border mb-4 sm:mb-6 ${
             user.isVerified 
               ? 'bg-gradient-to-r from-green-600/20 to-emerald-600/20 border-green-500/30' 
               : 'bg-gradient-to-r from-yellow-600/20 to-orange-600/20 border-yellow-500/30'
           }`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-bold text-base sm:text-lg md:text-xl">
                     {user.firstName.charAt(0)}{user.lastName.charAt(0)}
                   </span>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-white">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white truncate">
                     {user.firstName} {user.lastName}
                   </h2>
-                  <p className="text-slate-300">{user.email}</p>
-                  <div className="flex items-center space-x-2 mt-1">
+                  <p className="text-slate-300 text-xs sm:text-sm md:text-base truncate">{user.email}</p>
+                  <div className="flex items-center space-x-2 mt-1 flex-wrap">
                     {user.isVerified ? (
                       <>
-                        <CheckCircle className="w-5 h-5 text-green-400" />
-                        <span className="text-green-400 font-medium">Verified Account</span>
+                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+                        <span className="text-green-400 font-medium text-xs sm:text-sm md:text-base">Verified Account</span>
                       </>
                     ) : (
                       <>
-                        <AlertTriangle className="w-5 h-5 text-yellow-400" />
-                        <span className="text-yellow-400 font-medium">Verification Pending</span>
-                        <Link to="/account">
-                          <Button variant="outline" size="sm" className="ml-2">
+                        <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
+                        <span className="text-yellow-400 font-medium text-xs sm:text-sm md:text-base">Verification Pending</span>
+                        <Link to="/account" className="hidden sm:inline-block">
+                          <Button variant="outline" size="sm" className="ml-2 text-xs">
                             Complete Verification
                           </Button>
                         </Link>
@@ -262,73 +262,73 @@ function DashboardContent() {
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-slate-400">Account Balance</p>
-                <p className="text-3xl font-bold text-green-400">
+              <div className="text-left sm:text-right bg-slate-800/50 sm:bg-transparent rounded-lg p-3 sm:p-0">
+                <p className="text-slate-400 text-xs sm:text-sm">Account Balance</p>
+                <p className="text-xl sm:text-2xl md:text-3xl font-bold text-green-400">
                   {formatCurrency(currentBalance)}
                 </p>
-                <p className="text-slate-300">Available: {formatCurrency(availableBalance)}</p>
+                <p className="text-slate-300 text-xs sm:text-sm">Available: {formatCurrency(availableBalance)}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Enhanced Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 lg:gap-6 mb-4 sm:mb-6 md:mb-8">
           {dashboardStats.map((stat, index) => (
-            <div key={index} className="bg-slate-800 rounded-xl p-6 border border-slate-700 hover:scale-105 transition-all duration-300 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-16 h-16 opacity-10">
+            <div key={index} className="bg-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-slate-700 hover:scale-105 transition-all duration-300 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 opacity-10">
                 <stat.icon className="w-full h-full" />
               </div>
               <div className="relative">
-                <div className="flex items-center justify-between mb-4">
-                  <stat.icon className={`w-8 h-8 ${stat.color} group-hover:scale-110 transition-transform`} />
-                  <div className="flex items-center space-x-1">
+                <div className="flex items-center justify-between mb-2 sm:mb-3 md:mb-4">
+                  <stat.icon className={`w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 ${stat.color} group-hover:scale-110 transition-transform`} />
+                  <div className="flex items-center space-x-0.5 sm:space-x-1">
                     {stat.trend === 'up' ? (
-                      <ArrowUp className="w-4 h-4 text-green-400" />
+                      <ArrowUp className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
                     ) : (
-                      <ArrowDown className="w-4 h-4 text-red-400" />
+                      <ArrowDown className="w-3 h-3 sm:w-4 sm:h-4 text-red-400" />
                     )}
-                    <span className={`text-sm font-medium ${
+                    <span className={`text-[10px] sm:text-xs md:text-sm font-medium ${
                       stat.trend === 'up' ? 'text-green-400' : 'text-red-400'
                     }`}>
                       {stat.change}
                     </span>
                   </div>
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-1">{stat.value}</h3>
-                <p className="text-slate-400 text-sm font-medium">{stat.label}</p>
-                <p className="text-slate-500 text-xs mt-1">{stat.description}</p>
+                <h3 className="text-sm sm:text-base md:text-lg lg:text-2xl font-bold text-white mb-0.5 sm:mb-1 truncate">{stat.value}</h3>
+                <p className="text-slate-400 text-[10px] sm:text-xs md:text-sm font-medium truncate">{stat.label}</p>
+                <p className="text-slate-500 text-[9px] sm:text-[10px] md:text-xs mt-0.5 sm:mt-1 hidden md:block line-clamp-1">{stat.description}</p>
               </div>
             </div>
           ))}
         </div>
 
         {/* Performance Analytics */}
-        <div className="grid lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
           {/* Betting Performance */}
-          <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-slate-700">
+            <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
               <div className="flex items-center space-x-2">
-                <BarChart3 className="w-6 h-6 text-blue-400" />
-                <h3 className="text-lg font-bold text-white">Betting Performance</h3>
+                <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400" />
+                <h3 className="text-sm sm:text-base md:text-lg font-bold text-white">Betting Performance</h3>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setShowAdvancedStats(!showAdvancedStats)}>
-                <Eye className="w-4 h-4" />
+              <Button variant="ghost" size="sm" onClick={() => setShowAdvancedStats(!showAdvancedStats)} className="p-1 sm:p-2">
+                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
               </Button>
             </div>
             
-            <div className="space-y-4">
-              <div className="bg-slate-700/50 rounded-lg p-4">
+            <div className="space-y-2 sm:space-y-3 md:space-y-4">
+              <div className="bg-slate-700/50 rounded-lg p-2 sm:p-3 md:p-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Win Rate:</span>
-                  <span className={`font-bold text-lg ${realTimeMetrics.winRate >= 50 ? 'text-green-400' : 'text-red-400'}`}>
+                  <span className="text-slate-400 text-xs sm:text-sm">Win Rate:</span>
+                  <span className={`font-bold text-sm sm:text-base md:text-lg ${realTimeMetrics.winRate >= 50 ? 'text-green-400' : 'text-red-400'}`}>
                     {realTimeMetrics.winRate.toFixed(1)}%
                   </span>
                 </div>
-                <div className="w-full bg-slate-600 rounded-full h-2 mt-2">
+                <div className="w-full bg-slate-600 rounded-full h-1.5 sm:h-2 mt-1 sm:mt-2">
                   <div 
-                    className={`h-2 rounded-full transition-all duration-500 ${
+                    className={`h-1.5 sm:h-2 rounded-full transition-all duration-500 ${
                       realTimeMetrics.winRate >= 50 ? 'bg-green-400' : 'bg-red-400'
                     }`}
                     style={{ width: `${Math.min(100, realTimeMetrics.winRate)}%` }}
@@ -336,7 +336,7 @@ function DashboardContent() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 text-xs sm:text-sm">
                 <div>
                   <p className="text-slate-400">Sessions:</p>
                   <p className="text-white font-bold">{realTimeMetrics.totalSessions}</p>
@@ -347,51 +347,51 @@ function DashboardContent() {
                 </div>
                 <div className="col-span-2">
                   <p className="text-slate-400">Favorite Game:</p>
-                  <p className="text-purple-400 font-bold">{realTimeMetrics.favoriteGame}</p>
+                  <p className="text-purple-400 font-bold truncate">{realTimeMetrics.favoriteGame}</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Today's Activity */}
-          <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-            <div className="flex items-center space-x-2 mb-6">
-              <Calendar className="w-6 h-6 text-green-400" />
-              <h3 className="text-lg font-bold text-white">Today's Activity</h3>
+          <div className="bg-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-slate-700">
+            <div className="flex items-center space-x-2 mb-3 sm:mb-4 md:mb-6">
+              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-green-400" />
+              <h3 className="text-sm sm:text-base md:text-lg font-bold text-white">Today's Activity</h3>
             </div>
             
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-green-500/10 rounded-lg p-3 border border-green-500/20">
-                  <p className="text-green-400 font-medium text-sm">Deposits</p>
-                  <p className="text-xl font-bold text-white">
+            <div className="space-y-2 sm:space-y-3 md:space-y-4">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+                <div className="bg-green-500/10 rounded-lg p-2 sm:p-3 border border-green-500/20">
+                  <p className="text-green-400 font-medium text-[10px] sm:text-xs md:text-sm">Deposits</p>
+                  <p className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-white truncate">
                     {formatCurrency(todayTransactions
                       .filter(t => t.type === 'deposit')
                       .reduce((sum, t) => sum + t.amount, 0)
                     )}
                   </p>
                 </div>
-                <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20">
-                  <p className="text-blue-400 font-medium text-sm">Bets</p>
-                  <p className="text-xl font-bold text-white">
+                <div className="bg-blue-500/10 rounded-lg p-2 sm:p-3 border border-blue-500/20">
+                  <p className="text-blue-400 font-medium text-[10px] sm:text-xs md:text-sm">Bets</p>
+                  <p className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-white truncate">
                     {formatCurrency(todayTransactions
                       .filter(t => t.type === 'bet')
                       .reduce((sum, t) => sum + Math.abs(t.amount), 0)
                     )}
                   </p>
                 </div>
-                <div className="bg-yellow-500/10 rounded-lg p-3 border border-yellow-500/20">
-                  <p className="text-yellow-400 font-medium text-sm">Wins</p>
-                  <p className="text-xl font-bold text-white">
+                <div className="bg-yellow-500/10 rounded-lg p-2 sm:p-3 border border-yellow-500/20">
+                  <p className="text-yellow-400 font-medium text-[10px] sm:text-xs md:text-sm">Wins</p>
+                  <p className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-white truncate">
                     {formatCurrency(todayTransactions
                       .filter(t => t.type === 'win')
                       .reduce((sum, t) => sum + t.amount, 0)
                     )}
                   </p>
                 </div>
-                <div className="bg-purple-500/10 rounded-lg p-3 border border-purple-500/20">
-                  <p className="text-purple-400 font-medium text-sm">Net</p>
-                  <p className={`text-xl font-bold ${
+                <div className="bg-purple-500/10 rounded-lg p-2 sm:p-3 border border-purple-500/20">
+                  <p className="text-purple-400 font-medium text-[10px] sm:text-xs md:text-sm">Net</p>
+                  <p className={`text-sm sm:text-base md:text-lg lg:text-xl font-bold truncate ${
                     realTimeMetrics.profitLoss >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {formatCurrency(realTimeMetrics.profitLoss)}
@@ -399,35 +399,35 @@ function DashboardContent() {
                 </div>
               </div>
               
-              <div className="bg-slate-700/50 rounded-lg p-3">
+              <div className="bg-slate-700/50 rounded-lg p-2 sm:p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 text-sm">Active Bets:</span>
-                  <span className="text-white font-bold">{formatCurrency(stats.activeBets)}</span>
+                  <span className="text-slate-400 text-xs sm:text-sm">Active Bets:</span>
+                  <span className="text-white font-bold text-xs sm:text-sm truncate">{formatCurrency(stats.activeBets)}</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Weekly Summary */}
-          <div className="bg-slate-800 rounded-xl p-6 border border-slate-700">
-            <div className="flex items-center space-x-2 mb-6">
-              <TrendingUp className="w-6 h-6 text-purple-400" />
-              <h3 className="text-lg font-bold text-white">Weekly Summary</h3>
+          <div className="bg-slate-800 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border border-slate-700">
+            <div className="flex items-center space-x-2 mb-3 sm:mb-4 md:mb-6">
+              <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
+              <h3 className="text-sm sm:text-base md:text-lg font-bold text-white">Weekly Summary</h3>
             </div>
             
-            <div className="space-y-4">
-              <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3 md:space-y-4">
+              <div className="space-y-2 sm:space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Total Wagered:</span>
-                  <span className="text-blue-400 font-bold">{formatCurrency(weeklyStats.totalWagered)}</span>
+                  <span className="text-slate-400 text-xs sm:text-sm">Total Wagered:</span>
+                  <span className="text-blue-400 font-bold text-xs sm:text-sm truncate ml-2">{formatCurrency(weeklyStats.totalWagered)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Total Won:</span>
-                  <span className="text-yellow-400 font-bold">{formatCurrency(weeklyStats.totalWon)}</span>
+                  <span className="text-slate-400 text-xs sm:text-sm">Total Won:</span>
+                  <span className="text-yellow-400 font-bold text-xs sm:text-sm truncate ml-2">{formatCurrency(weeklyStats.totalWon)}</span>
                 </div>
-                <div className="flex items-center justify-between border-t border-slate-600 pt-3">
-                  <span className="text-slate-400">Net Result:</span>
-                  <span className={`font-bold text-lg ${
+                <div className="flex items-center justify-between border-t border-slate-600 pt-2 sm:pt-3">
+                  <span className="text-slate-400 text-xs sm:text-sm">Net Result:</span>
+                  <span className={`font-bold text-sm sm:text-base md:text-lg truncate ml-2 ${
                     weeklyStats.totalWon - weeklyStats.totalWagered >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {formatCurrency(weeklyStats.totalWon - weeklyStats.totalWagered)}
@@ -435,10 +435,10 @@ function DashboardContent() {
                 </div>
               </div>
               
-              <div className="bg-slate-700/50 rounded-lg p-3">
+              <div className="bg-slate-700/50 rounded-lg p-2 sm:p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 text-sm">Sessions Played:</span>
-                  <span className="text-white font-bold">{weeklyStats.sessionsPlayed}</span>
+                  <span className="text-slate-400 text-xs sm:text-sm">Sessions Played:</span>
+                  <span className="text-white font-bold text-xs sm:text-sm">{weeklyStats.sessionsPlayed}</span>
                 </div>
               </div>
             </div>
@@ -446,28 +446,28 @@ function DashboardContent() {
         </div>
 
         {/* Enhanced Quick Actions */}
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-6 flex items-center space-x-2">
-            <Zap className="w-6 h-6 text-yellow-400" />
+        <div className="mb-4 sm:mb-6 md:mb-8">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4 md:mb-6 flex items-center space-x-2">
+            <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400" />
             <span>Quick Actions</span>
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
             {quickActions.map((action, index) => (
               <Link key={index} to={action.href}>
-                <div className={`bg-gradient-to-br ${action.color} rounded-xl p-6 border ${action.borderColor} hover:scale-105 transition-all duration-300 group relative overflow-hidden`}>
-                  <div className="absolute top-0 right-0 w-16 h-16 opacity-10">
+                <div className={`bg-gradient-to-br ${action.color} rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 border ${action.borderColor} hover:scale-105 transition-all duration-300 group relative overflow-hidden`}>
+                  <div className="absolute top-0 right-0 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 opacity-10">
                     <action.icon className="w-full h-full" />
                   </div>
                   <div className="relative">
-                    <div className="flex items-center justify-between mb-4">
-                      <action.icon className="w-8 h-8 text-blue-400 group-hover:scale-110 transition-transform" />
-                      <span className="text-xs text-slate-400 bg-slate-700/50 px-2 py-1 rounded-full">
+                    <div className="flex items-center justify-between mb-2 sm:mb-3 md:mb-4">
+                      <action.icon className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-blue-400 group-hover:scale-110 transition-transform" />
+                      <span className="text-[9px] sm:text-[10px] md:text-xs text-slate-400 bg-slate-700/50 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">
                         Quick Access
                       </span>
                     </div>
-                    <h3 className="text-xl font-semibold mb-2 text-white">{action.title}</h3>
-                    <p className="text-slate-400 text-sm mb-3">{action.description}</p>
-                    <p className="text-slate-300 text-xs font-medium">{action.stats}</p>
+                    <h3 className="text-base sm:text-lg md:text-xl font-semibold mb-1 sm:mb-2 text-white">{action.title}</h3>
+                    <p className="text-slate-400 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2">{action.description}</p>
+                    <p className="text-slate-300 text-[10px] sm:text-xs font-medium truncate">{action.stats}</p>
                   </div>
                 </div>
               </Link>
@@ -476,21 +476,21 @@ function DashboardContent() {
         </div>
 
         {/* Enhanced Recent Activity */}
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           {/* Recent Transactions */}
-          <div className="lg:col-span-2 bg-slate-800 rounded-xl border border-slate-700">
-            <div className="p-6 border-b border-slate-700">
-              <div className="flex items-center justify-between">
+          <div className="lg:col-span-2 bg-slate-800 rounded-lg sm:rounded-xl border border-slate-700">
+            <div className="p-3 sm:p-4 md:p-6 border-b border-slate-700">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
                 <div className="flex items-center space-x-2">
-                  <Activity className="w-6 h-6 text-blue-400" />
-                  <h2 className="text-xl font-bold text-white">Recent Transactions</h2>
-                  <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
+                  <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400" />
+                  <h2 className="text-base sm:text-lg md:text-xl font-bold text-white">Recent Transactions</h2>
+                  <span className="bg-blue-600 text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">
                     {recentTransactions.length}
                   </span>
                 </div>
                 <Link to="/wallet">
-                  <Button variant="outline" size="sm">
-                    <Eye className="w-4 h-4 mr-2" />
+                  <Button variant="outline" size="sm" className="text-xs sm:text-sm w-full sm:w-auto">
+                    <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                     View All
                   </Button>
                 </Link>
@@ -498,20 +498,20 @@ function DashboardContent() {
             </div>
             
             {recentTransactions.length === 0 ? (
-              <div className="p-12 text-center">
-                <Activity className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-slate-400 mb-2">No Recent Activity</h3>
-                <p className="text-slate-500 mb-6">Start betting or playing to see your activity here</p>
-                <div className="flex justify-center space-x-4">
-                  <Link to="/sports">
-                    <Button>
-                      <Target className="w-4 h-4 mr-2" />
+              <div className="p-6 sm:p-8 md:p-12 text-center">
+                <Activity className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 text-slate-600 mx-auto mb-3 sm:mb-4" />
+                <h3 className="text-base sm:text-lg md:text-xl font-semibold text-slate-400 mb-1 sm:mb-2">No Recent Activity</h3>
+                <p className="text-slate-500 text-xs sm:text-sm md:text-base mb-4 sm:mb-6">Start betting or playing to see your activity here</p>
+                <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-4">
+                  <Link to="/sports" className="w-full sm:w-auto">
+                    <Button className="w-full text-xs sm:text-sm">
+                      <Target className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                       Sports Betting
                     </Button>
                   </Link>
-                  <Link to="/casino">
-                    <Button variant="outline">
-                      <Trophy className="w-4 h-4 mr-2" />
+                  <Link to="/casino" className="w-full sm:w-auto">
+                    <Button variant="outline" className="w-full text-xs sm:text-sm">
+                      <Trophy className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                       Casino Games
                     </Button>
                   </Link>
