@@ -290,7 +290,7 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
       setMessage('🃏 Dealing to Player...');
       const playerCard1 = await drawCardFromAPI();
       if (playerCard1) {
-        setPlayerHand(createBaccaratHand([playerCard1]));
+      setPlayerHand(createBaccaratHand([playerCard1]));
         if (soundEnabled) console.log('🔊 Card flip sound...');
         await new Promise(resolve => setTimeout(resolve, 450));
         setCardAnimation(null);
@@ -301,7 +301,7 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
       setMessage('👑 Dealing to Banker...');
       const bankerCard1 = await drawCardFromAPI();
       if (bankerCard1) {
-        setBankerHand(createBaccaratHand([bankerCard1]));
+      setBankerHand(createBaccaratHand([bankerCard1]));
         if (soundEnabled) console.log('🔊 Card flip sound...');
         await new Promise(resolve => setTimeout(resolve, 450));
         setCardAnimation(null);
@@ -313,7 +313,7 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
       const playerCard2 = await drawCardFromAPI();
       let newPlayerHand = playerCard1 && playerCard2 ? createBaccaratHand([playerCard1, playerCard2]) : null;
       if (newPlayerHand) {
-        setPlayerHand(newPlayerHand);
+      setPlayerHand(newPlayerHand);
         if (soundEnabled) console.log('🔊 Card flip sound...');
         await new Promise(resolve => setTimeout(resolve, 450));
         setCardAnimation(null);
@@ -325,7 +325,7 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
       const bankerCard2 = await drawCardFromAPI();
       let newBankerHand = bankerCard1 && bankerCard2 ? createBaccaratHand([bankerCard1, bankerCard2]) : null;
       if (newBankerHand) {
-        setBankerHand(newBankerHand);
+      setBankerHand(newBankerHand);
         if (soundEnabled) console.log('🔊 Card flip sound...');
         await new Promise(resolve => setTimeout(resolve, 350));
         setCardAnimation(null);
@@ -370,8 +370,8 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
         setMessage('🃏 Player draws third card...');
         const playerCard3 = await drawCardFromAPI();
         if (playerCard3) {
-          newPlayerHand = createBaccaratHand([...newPlayerHand.cards, playerCard3]);
-          setPlayerHand(newPlayerHand);
+        newPlayerHand = createBaccaratHand([...newPlayerHand.cards, playerCard3]);
+        setPlayerHand(newPlayerHand);
           if (soundEnabled) console.log('🔊 Card flip sound...');
           await new Promise(resolve => setTimeout(resolve, 450));
           setCardAnimation(null);
@@ -386,8 +386,8 @@ export function BaccaratGame({ gameId, gameName }: BaccaratGameProps) {
         setMessage('👑 Banker draws third card...');
         const bankerCard3 = await drawCardFromAPI();
         if (bankerCard3) {
-          newBankerHand = createBaccaratHand([...newBankerHand.cards, bankerCard3]);
-          setBankerHand(newBankerHand);
+        newBankerHand = createBaccaratHand([...newBankerHand.cards, bankerCard3]);
+        setBankerHand(newBankerHand);
           if (soundEnabled) console.log('🔊 Card flip sound...');
           await new Promise(resolve => setTimeout(resolve, 450));
           setCardAnimation(null);

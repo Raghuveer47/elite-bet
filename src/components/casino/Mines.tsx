@@ -116,17 +116,17 @@ export default function Mines({ gameId = 'mines', gameName = 'Mines' }: { gameId
           {/* Bet Amount */}
           <div>
             <label className="block text-xs sm:text-sm font-bold text-emerald-400 mb-2">Bet Amount (₹)</label>
-            <input
-              type="number"
-              min={10}
-              step={10}
-              value={betAmount}
-              disabled={status === 'playing'}
-              onChange={(e) => setBetAmount(Math.max(10, Number(e.target.value) || 10))}
+          <input
+            type="number"
+            min={10}
+            step={10}
+            value={betAmount}
+            disabled={status === 'playing'}
+            onChange={(e) => setBetAmount(Math.max(10, Number(e.target.value) || 10))}
               className="w-full rounded-lg bg-slate-700 border border-slate-600 px-3 py-2 text-white text-center font-bold"
-            />
+          />
             <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2">
-              {[10, 50, 100, 500, 1000].map(v => (
+            {[10, 50, 100, 500, 1000].map(v => (
                 <button 
                   key={v} 
                   onClick={() => status !== 'playing' && setBetAmount(v)} 
@@ -134,24 +134,24 @@ export default function Mines({ gameId = 'mines', gameName = 'Mines' }: { gameId
                 >
                   ₹{v}
                 </button>
-              ))}
-            </div>
+            ))}
           </div>
+        </div>
 
           {/* Mines Count */}
           <div>
             <label className="block text-xs sm:text-sm font-bold text-red-400 mb-2">Number of Mines</label>
-            <input
-              type="number"
-              min={1}
-              max={24}
-              value={minesCount}
-              disabled={status === 'playing'}
-              onChange={(e) => setMinesCount(Math.min(24, Math.max(1, Number(e.target.value) || 1)))}
+          <input
+            type="number"
+            min={1}
+            max={24}
+            value={minesCount}
+            disabled={status === 'playing'}
+            onChange={(e) => setMinesCount(Math.min(24, Math.max(1, Number(e.target.value) || 1)))}
               className="w-full rounded-lg bg-slate-700 border border-slate-600 px-3 py-2 text-white text-center font-bold"
-            />
+          />
             <p className="text-[10px] sm:text-xs text-slate-400 mt-2">Higher mines = Higher multiplier</p>
-          </div>
+        </div>
         </div>
       </div>
 
@@ -189,27 +189,27 @@ export default function Mines({ gameId = 'mines', gameName = 'Mines' }: { gameId
       {/* Mine Grid */}
       <div className="bg-slate-900/50 rounded-lg sm:rounded-xl p-2 sm:p-3 md:p-4 border border-emerald-500/30">
         <div className="grid gap-1.5 sm:gap-2 md:gap-3" style={{ gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))` }}>
-          {Array.from({ length: TOTAL_CELLS }, (_, idx) => {
-            const isRevealed = revealed.has(idx) || (status !== 'playing' && mines.has(idx));
-            const isMine = mines.has(idx);
-            const cellState: CellState = isRevealed ? (isMine ? 'mine' : 'gem') : 'hidden';
-            return (
-              <button
-                key={idx}
-                onClick={() => reveal(idx)}
-                disabled={status !== 'playing'}
+        {Array.from({ length: TOTAL_CELLS }, (_, idx) => {
+          const isRevealed = revealed.has(idx) || (status !== 'playing' && mines.has(idx));
+          const isMine = mines.has(idx);
+          const cellState: CellState = isRevealed ? (isMine ? 'mine' : 'gem') : 'hidden';
+          return (
+            <button
+              key={idx}
+              onClick={() => reveal(idx)}
+              disabled={status !== 'playing'}
                 className={`aspect-square rounded-lg sm:rounded-xl border-2 flex items-center justify-center font-bold select-none transition-all duration-200 transform active:scale-95 sm:hover:scale-105 ${
                   cellState==='hidden' ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-slate-600 shadow-lg' :
                   cellState==='gem' ? 'bg-gradient-to-br from-emerald-500 to-green-600 border-emerald-400 text-white shadow-xl shadow-emerald-500/50 animate-pulse' :
                   'bg-gradient-to-br from-rose-600 to-red-700 border-rose-400 text-white shadow-xl shadow-red-500/50 animate-pulse'
-                }`}
-              >
+              }`}
+            >
                 <span className={`${cellState==='hidden' ? 'text-slate-600' : 'text-2xl sm:text-3xl md:text-4xl'}`}>
                   {cellState==='gem' ? '💎' : cellState==='mine' ? '💣' : '?'}
-                </span>
-              </button>
-            );
-          })}
+              </span>
+            </button>
+          );
+        })}
         </div>
       </div>
 

@@ -776,27 +776,27 @@ export function SlotMachine({ gameId, gameName }: SlotMachineProps) {
               Paytable
             </Button>
 
-            <Button
-              variant="ghost"
-              onClick={() => setSoundEnabled(!soundEnabled)}
+          <Button
+            variant="ghost"
+            onClick={() => setSoundEnabled(!soundEnabled)}
               className="px-3 sm:px-4 py-2 sm:py-3"
-            >
+          >
               {soundEnabled ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />}
-            </Button>
-            
+          </Button>
+          
             <div className="flex items-center justify-center space-x-1.5 sm:space-x-2 bg-slate-800/50 rounded-lg px-2 py-1">
               <label className="text-[10px] sm:text-xs md:text-sm text-slate-400 font-medium">Speed:</label>
-              <select
-                value={spinSpeed}
-                onChange={(e) => setSpinSpeed(parseInt(e.target.value))}
+            <select
+              value={spinSpeed}
+              onChange={(e) => setSpinSpeed(parseInt(e.target.value))}
                 className="px-2 sm:px-3 py-1 sm:py-1.5 bg-slate-700 border border-slate-600 rounded text-white text-[10px] sm:text-xs md:text-sm font-bold"
-                disabled={isPlaying}
-              >
-                <option value={150}>Slow</option>
-                <option value={100}>Normal</option>
-                <option value={50}>Fast</option>
-                <option value={25}>Turbo</option>
-              </select>
+              disabled={isPlaying}
+            >
+              <option value={150}>Slow</option>
+              <option value={100}>Normal</option>
+              <option value={50}>Fast</option>
+              <option value={25}>Turbo</option>
+            </select>
             </div>
           </div>
         </div>

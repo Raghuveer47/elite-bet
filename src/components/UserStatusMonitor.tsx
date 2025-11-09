@@ -128,7 +128,7 @@ export function UserStatusMonitor() {
 
     // Wait 5 seconds before first check (allow login to complete)
     const initialCheckTimeout = setTimeout(() => {
-      checkUserStatus();
+    checkUserStatus();
     }, 5000);
 
     // Then check every 30 seconds

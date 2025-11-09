@@ -758,24 +758,24 @@ export function RouletteGame({ gameId, gameName }: RouletteGameProps) {
           </Button>
           
           <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3 md:gap-4">
-            <Button 
-              variant="outline" 
-              onClick={clearBets} 
-              disabled={isPlaying || bets.length === 0}
+          <Button 
+            variant="outline" 
+            onClick={clearBets} 
+            disabled={isPlaying || bets.length === 0}
               className="px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-5 lg:py-6 text-xs sm:text-sm md:text-base lg:text-xl font-bold border-2 border-yellow-500 hover:bg-yellow-500/20"
-            >
+          >
               Clear
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              onClick={resetSession} 
-              disabled={isPlaying}
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={resetSession} 
+            disabled={isPlaying}
               className="px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-5 lg:py-6 text-xs sm:text-sm md:text-base lg:text-xl font-bold border-2 border-purple-500 hover:bg-purple-500/20"
-            >
+          >
               <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 mr-1 sm:mr-2 md:mr-3" />
               <span className="hidden sm:inline">Reset</span>
-            </Button>
+          </Button>
           </div>
         </div>
 

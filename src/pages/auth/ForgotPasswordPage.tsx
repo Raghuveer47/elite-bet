@@ -17,6 +17,8 @@ export function ForgotPasswordPage() {
   const [otpVerified, setOtpVerified] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; otp?: string; password?: string }>({});
   const [otpExpiry, setOtpExpiry] = useState<number>(600); // 10 minutes
+  const [displayedOTP, setDisplayedOTP] = useState<string>(''); // Store OTP to display on page
+  const [emailSent, setEmailSent] = useState(false); // Track if email was sent
   const navigate = useNavigate();
 
   const validateEmail = () => {
@@ -73,13 +75,42 @@ export function ForgotPasswordPage() {
       if (data.success) {
         setOtpSent(true);
         setOtpExpiry(data.expiresIn || 600);
+        setEmailSent(data.emailSent || false);
         
-        // Show OTP in development mode
+        // Show OTP if returned in response (email not configured or failed)
         if (data.otp) {
+          setDisplayedOTP(data.otp); // Store OTP to display on page
           console.log('🔐 OTP:', data.otp);
-          toast.success(`OTP sent! (Dev: ${data.otp})`, { duration: 8000 });
-        } else {
+          
+          // Show prominent toast with OTP
+          toast.success(
+            (t) => (
+              <div className="text-center">
+                <div className="font-bold mb-2">Your OTP Code</div>
+                <div className="text-3xl font-mono tracking-widest bg-slate-700 px-4 py-2 rounded-lg">
+                  {data.otp}
+                </div>
+                <div className="text-xs text-slate-400 mt-2">
+                  {data.emailSent ? 'Also sent to your email' : 'Email not configured - use this code'}
+                </div>
+              </div>
+            ),
+            {
+              duration: 15000, // 15 seconds
+              style: {
+                background: '#1e293b',
+                color: '#fff',
+                minWidth: '350px',
+                padding: '20px',
+                border: '2px solid #10b981'
+              }
+            }
+          );
+        } else if (data.emailSent) {
+          setDisplayedOTP(''); // No OTP to display, it was sent via email
           toast.success('OTP sent to your email!');
+        } else {
+          toast.error('Could not send OTP. Please contact support.');
         }
       } else {
         toast.error(data.message || 'Failed to send OTP');
@@ -203,10 +234,37 @@ export function ForgotPasswordPage() {
         setOtpExpiry(data.expiresIn || 600);
         
         if (data.otp) {
+          setDisplayedOTP(data.otp); // Update displayed OTP
           console.log('🔐 New OTP:', data.otp);
-          toast.success(`OTP resent! (Dev: ${data.otp})`, { duration: 8000 });
-        } else {
+          
+          // Show prominent toast with OTP
+          toast.success(
+            (t) => (
+              <div className="text-center">
+                <div className="font-bold mb-2">New OTP Code</div>
+                <div className="text-3xl font-mono tracking-widest bg-slate-700 px-4 py-2 rounded-lg">
+                  {data.otp}
+                </div>
+                <div className="text-xs text-slate-400 mt-2">
+                  {data.emailSent ? 'Also sent to your email' : 'Email not configured - use this code'}
+                </div>
+              </div>
+            ),
+            {
+              duration: 15000,
+              style: {
+                background: '#1e293b',
+                color: '#fff',
+                minWidth: '350px',
+                padding: '20px',
+                border: '2px solid #10b981'
+              }
+            }
+          );
+        } else if (data.emailSent) {
           toast.success('OTP resent to your email!');
+        } else {
+          toast.error('Could not resend OTP. Please try again.');
         }
       } else {
         toast.error(data.message || 'Failed to resend OTP');
@@ -244,12 +302,44 @@ export function ForgotPasswordPage() {
               </div>
               <h1 className="text-2xl font-bold text-white mb-2">Enter OTP</h1>
               <p className="text-slate-400">
-                We've sent a 6-digit code to <strong className="text-white">{email}</strong>
+                {emailSent ? (
+                  <>We've sent a 6-digit code to <strong className="text-white">{email}</strong></>
+                ) : (
+                  <>Your 6-digit code for <strong className="text-white">{email}</strong></>
+                )}
               </p>
               <p className="text-sm text-slate-500 mt-2">
                 Code expires in {Math.floor(otpExpiry / 60)} minutes
               </p>
             </div>
+
+            {/* Display OTP if email wasn't sent */}
+            {displayedOTP && !emailSent && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-green-600/20 to-blue-600/20 border-2 border-green-500/50 rounded-xl">
+                <div className="text-center">
+                  <p className="text-sm text-slate-300 mb-2">📧 Email not configured - Use this code:</p>
+                  <div className="text-4xl font-mono font-bold tracking-widest text-green-400 bg-slate-900 px-4 py-3 rounded-lg select-all">
+                    {displayedOTP}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-2">Click to select and copy this code</p>
+                </div>
+              </div>
+            )}
+
+            {/* Email sent confirmation */}
+            {emailSent && (
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-2 border-blue-500/50 rounded-xl">
+                <div className="text-center">
+                  <CheckCircle className="w-8 h-8 text-green-400 mx-auto mb-2" />
+                  <p className="text-sm text-slate-300">
+                    ✅ OTP has been sent to your email
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Check your inbox (and spam folder)
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* OTP Form */}
             <form onSubmit={handleVerifyOTP} className="space-y-6">
@@ -321,7 +411,7 @@ export function ForgotPasswordPage() {
               <h1 className="text-2xl font-bold text-white mb-2">Set New Password</h1>
               <p className="text-slate-400">
                 Enter your new password for <strong className="text-white">{email}</strong>
-              </p>
+            </p>
             </div>
 
             {/* Password Form */}

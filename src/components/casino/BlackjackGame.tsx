@@ -291,8 +291,8 @@ export function BlackjackGame({ gameId, gameName }: BlackjackGameProps) {
       setMessage('🃏 Second card to Player...');
       const playerCard2 = await drawCardFromAPI();
       if (playerCard2 && playerCard1) {
-        const newPlayerHand = createGameHand([playerCard1, playerCard2]);
-        setPlayerHands([newPlayerHand]);
+      const newPlayerHand = createGameHand([playerCard1, playerCard2]);
+      setPlayerHands([newPlayerHand]);
         if (soundEnabled) console.log('🔊 Card flip sound...');
         await new Promise(resolve => setTimeout(resolve, 500));
         setCardAnimation(null);
@@ -304,7 +304,7 @@ export function BlackjackGame({ gameId, gameName }: BlackjackGameProps) {
       const dealerCard2 = await drawCardFromAPI();
       if (dealerCard2 && dealerCard1) {
         const newDealerHand = createGameHand([dealerCard1, dealerCard2]);
-        setDealerHand(newDealerHand);
+      setDealerHand(newDealerHand);
         if (soundEnabled) console.log('🔊 Card flip sound...');
         await new Promise(resolve => setTimeout(resolve, 400));
         setCardAnimation(null);
@@ -320,7 +320,7 @@ export function BlackjackGame({ gameId, gameName }: BlackjackGameProps) {
         
         setPlayerHands([createGameHand([p1, p2])]);
         setDealerHand(createGameHand([de1, de2]));
-        setDeck(finalDeck);
+      setDeck(finalDeck);
       }
       
       setActiveHandIndex(0);
@@ -565,7 +565,7 @@ export function BlackjackGame({ gameId, gameName }: BlackjackGameProps) {
       if (!card && currentDeck.length > 0) {
         const { card: localCard, newDeck } = dealCard(currentDeck);
         card = localCard;
-        currentDeck = newDeck;
+      currentDeck = newDeck;
       }
       
       if (!card) break;
@@ -698,7 +698,7 @@ export function BlackjackGame({ gameId, gameName }: BlackjackGameProps) {
             alt="Card Back"
             className="w-full h-full object-cover"
           />
-        </div>
+            </div>
       );
     }
 
